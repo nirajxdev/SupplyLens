@@ -1,24 +1,16 @@
 import React from 'react'
-import Navbar from './components/Navbar'
-import Hero from './components/Hero'
-import Features from './components/Features'
-import HowItWorks from './components/HowItWorks'
-import Stats from './components/Stats'
-import Testimonials from './components/Testimonials'
-import CTA from './components/CTA'
-import Footer from './components/Footer'
 
 function App() {
   return (
-    <div className="min-h-screen bg-white">
-      <Navbar />
-      <Hero />
-      <Features />
-      <HowItWorks />
-      <Stats />
-      <Testimonials />
-      <CTA />
-      <Footer />
+    <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className="text-center">
+        <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
+          SupplyLens
+        </h1>
+        <p className="text-gray-400 text-lg">
+          is in progress
+        </p>
+      </div>
     </div>
   )
 }
