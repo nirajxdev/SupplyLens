@@ -134,34 +134,7 @@ SupplyLens/
 
 ---
 
-## 🔃 Contributing
 
-Contributions are what make the open-source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
-
-### Workflow for Pull Requests (PR)
-
-1. **Fork the Project & Clone your fork**
-   ```bash
-   git clone https://github.com/your-username/SupplyLens.git
-   cd SupplyLens
-   ```
-2. **Create your Feature Branch**
-   ```bash
-   git checkout main
-   git pull origin main
-   git checkout -b feat/your-feature-name
-   ```
-3. **Commit your Changes** (Follow [Conventional Commits](https://www.conventionalcommits.org/))
-   ```bash
-   git commit -m "feat: add robust supplier dashboard component"
-   ```
-4. **Push to the Branch**
-   ```bash
-   git push origin feat/your-feature-name
-   ```
-5. **Open a Pull Request** on GitHub, providing a descriptive title and attaching screenshots if applicable.
-
----
 
 <p align="center">
   Made with ❤️ by the SupplyLens Team
