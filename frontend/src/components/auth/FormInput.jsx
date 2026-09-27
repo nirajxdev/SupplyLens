@@ -2,8 +2,8 @@ const FormInput = ({ label, type = 'text', name, value, onChange, placeholder, e
   return (
     <div>
       {label && (
-        <label htmlFor={name} style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: 'var(--text)', marginBottom: '6px' }}>
-          {label}
+        <label htmlFor={name} className="ent-label">
+          {label}{required && <span style={{ color: 'var(--red)' }}> *</span>}
         </label>
       )}
       <input
@@ -14,29 +14,11 @@ const FormInput = ({ label, type = 'text', name, value, onChange, placeholder, e
         onChange={onChange}
         placeholder={placeholder}
         required={required}
-        className="w-full py-2.5 px-3.5 rounded-lg outline-none transition-all duration-200"
-        style={{
-          background: 'var(--bg)',
-          border: error ? '1px solid var(--red)' : '1px solid var(--border)',
-          boxShadow: error ? '0 0 0 3px rgba(239,68,68,0.08)' : 'none',
-          fontSize: '14px',
-          color: 'var(--text)',
-        }}
-        onFocus={e => {
-          if (!error) {
-            e.target.style.borderColor = 'var(--accent)';
-            e.target.style.boxShadow = '0 0 0 3px rgba(16,185,129,0.08)';
-          }
-        }}
-        onBlur={e => {
-          if (!error) {
-            e.target.style.borderColor = 'var(--border)';
-            e.target.style.boxShadow = 'none';
-          }
-        }}
+        className="ent-input"
+        style={error ? { borderColor: 'var(--red)', boxShadow: '0 0 0 3px rgba(185,28,28,0.10)' } : undefined}
         {...props}
       />
-      {error && <p style={{ fontSize: '13px', color: 'var(--red)', marginTop: '6px' }}>{error}</p>}
+      {error && <p style={{ fontSize: 12, color: 'var(--red)', marginTop: 4 }}>{error}</p>}
     </div>
   );
 };

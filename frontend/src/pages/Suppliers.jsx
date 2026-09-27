@@ -1,41 +1,17 @@
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
-import { useAnimatedCounter } from '../hooks/useAnimatedCounter';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchSuppliers, addSupplier } from '../redux/slices/supplierSlice';
 import RoleGuard from '../components/RoleGuard';
+import Modal from '../components/shared/Modal';
+import SkeletonLoader from '../components/shared/SkeletonLoader';
+import StatusPill from '../components/app/StatusPill';
 import { toast } from 'sonner';
+import { Plus, Mail, Phone } from 'lucide-react';
 
-const getSupplierColor = (score) => {
-  if (score >= 90) return 'var(--green)';
-  if (score >= 70) return 'var(--amber)';
-  return 'var(--red)';
-};
-
-const ScoreRing = ({ score, color, delay = 0 }) => {
-  const circumference = 2 * Math.PI * 18;
-  const offset = circumference * (1 - score / 100);
-  const { ref, displayValue } = useAnimatedCounter(score, { duration: 1.2, suffix: '%' });
-
-  return (
-    <div className="relative flex items-center justify-center" ref={ref}>
-      <svg width="48" height="48" viewBox="0 0 40 40">
-        <circle cx="20" cy="20" r="18" fill="none" stroke="var(--app-overlay)" strokeWidth="2.5" />
-        <motion.circle
-          cx="20" cy="20" r="18"
-          fill="none"
-          stroke={color}
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          style={{ filter: `drop-shadow(0 0 4px ${color})`, transform: 'rotate(-90deg)', transformOrigin: '50% 50%' }}
-          initial={{ strokeDasharray: circumference, strokeDashoffset: circumference }}
-          animate={{ strokeDashoffset: offset }}
-          transition={{ duration: 1.2, ease: 'easeOut', delay }}
-        />
-      </svg>
-      <span className="absolute" style={{ fontSize: '11px', fontWeight: 600, color }}>{displayValue}</span>
-    </div>
-  );
+const scoreTone = (score) => {
+  if (score >= 90) return 'ent-pill-green';
+  if (score >= 70) return 'ent-pill-amber';
+  return 'ent-pill-red';
 };
 
 const Suppliers = () => {
@@ -64,88 +40,86 @@ const Suppliers = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="p-8 flex items-center justify-center min-h-[60vh]">
-        <div className="animate-pulse" style={{ color: 'var(--app-text-muted)' }}>Loading suppliers...</div>
-      </div>
-    );
-  }
-
   return (
-    <motion.div className="p-8" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}>
-      <div className="flex items-center justify-between mb-6">
-        <h1 style={{ fontSize: 'clamp(28px, 4vw, 36px)', fontWeight: 500, letterSpacing: '-1px' }}>Suppliers</h1>
-        <RoleGuard allowedRoles={['admin', 'manager']}>
-          <button onClick={() => setModalOpen(true)} className="btn-shimmer flex items-center gap-2 px-4 py-2.5 rounded-[10px] cursor-pointer border-0" style={{ background: 'var(--accent)', color: '#000', fontSize: '13px', fontWeight: 500 }}>
-            + Add Supplier
-          </button>
-        </RoleGuard>
+    <div className="ent-page">
+      <div className="ent-page-header">
+        <div>
+          <div className="ent-page-title">Suppliers</div>
+          <div className="ent-page-sub">{suppliers?.length || 0} vendors · reliability scored from delivery history.</div>
+        </div>
+        <div className="ent-page-actions">
+          <RoleGuard allowedRoles={['admin', 'manager']}>
+            <button onClick={() => setModalOpen(true)} className="ent-btn ent-btn-primary ent-btn-sm"><Plus size={13} /> Add Supplier</button>
+          </RoleGuard>
+        </div>
       </div>
 
-      {suppliers?.length === 0 ? (
-          <div className="py-16 text-center w-full" style={{ border: '1px dashed var(--app-border)', borderRadius: '12px' }}>
-              <p style={{ color: 'var(--app-text-muted)', fontSize: '14px' }}>No suppliers found. Create your first supplier.</p>
-              <RoleGuard allowedRoles={['admin', 'manager']}>
-                <button onClick={() => setModalOpen(true)} className="mt-4 inline-block text-[13px] font-medium border-0 cursor-pointer" style={{ color: 'var(--accent)', background: 'transparent' }}>+ Add Supplier</button>
-              </RoleGuard>
+      {loading ? (
+        <SkeletonLoader rows={6} />
+      ) : suppliers?.length === 0 ? (
+        <div className="ent-card"><div className="ent-empty">
+          <p className="ent-empty-title">No suppliers yet</p>
+          <p className="ent-empty-sub">Add your first vendor to start creating purchase orders.</p>
+          <div style={{ marginTop: 12 }}>
+            <RoleGuard allowedRoles={['admin', 'manager']}>
+              <button onClick={() => setModalOpen(true)} className="ent-btn ent-btn-primary ent-btn-sm"><Plus size={13} /> Add Supplier</button>
+            </RoleGuard>
           </div>
+        </div></div>
       ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {suppliers && suppliers.map((s) => {
-          const score = s.reliabilityScore ?? 100;
-          const color = getSupplierColor(score);
-          return (
-            <motion.div
-              key={s._id || s.id}
-              className="p-5 rounded-[16px] flex items-center gap-4 transition-all duration-200 group"
-              style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border)' }}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-              whileHover={{ y: -3, borderColor: 'var(--app-border-hover)' }}
-            >
-              <motion.div whileHover={{ scale: 1.15 }} transition={{ type: 'spring', stiffness: 300 }}>
-                <ScoreRing score={score} color={color} />
-              </motion.div>
-              <div className="min-w-0 flex-1">
-                <p style={{ fontSize: '15px', fontWeight: 500, color: 'var(--app-text)' }}>{s.name}</p>
-                <p style={{ fontSize: '13px', color: 'var(--app-text-muted)' }}>{s.contactPerson || s.contact}</p>
-                <p style={{ fontSize: '12px', color: 'var(--app-text-muted)' }}>{s.email}</p>
-              </div>
-            </motion.div>
-          );
-        })}
-      </div>
-      )}
-
-      {modalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-label="Add supplier" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
-          <div className="rounded-[16px] p-6 w-full max-w-[420px]" style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border)' }}>
-            <h2 className="text-[18px] font-medium mb-4">Add Supplier</h2>
-            <form onSubmit={handleAdd} className="flex flex-col gap-3">
-              {[
-                { k: 'name', label: 'Company name', ph: 'Acme Foods' },
-                { k: 'contactPerson', label: 'Contact person', ph: 'Jane Doe' },
-                { k: 'email', label: 'Email', ph: 'ops@acme.com', type: 'email' },
-                { k: 'phone', label: 'Phone', ph: '+1 555 0100' },
-                { k: 'address', label: 'Address', ph: '123 Market St' },
-              ].map(f => (
-                <div key={f.k}>
-                  <label className="text-[12px] mb-1 block" style={{ color: 'var(--app-text-muted)' }}>{f.label}</label>
-                  <input required type={f.type || 'text'} value={form[f.k]} onChange={e => setForm({ ...form, [f.k]: e.target.value })} placeholder={f.ph}
-                    className="w-full p-2 rounded-[8px] text-[13px]" style={{ background: 'transparent', border: '1px solid var(--app-border)', color: 'var(--app-text)' }} />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 10 }}>
+          {suppliers?.map((s) => {
+            const score = s.reliabilityScore ?? 100;
+            return (
+              <div key={s._id || s.id} className="ent-card ent-card-pad">
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 650 }}>{s.name}</div>
+                    <div style={{ fontSize: 12, color: 'var(--app-text-muted)' }}>{s.contactPerson || '—'}</div>
+                  </div>
+                  <span className={`ent-pill ${scoreTone(score)}`}><span className="dot" />{score}%</span>
                 </div>
-              ))}
-              <div className="flex gap-3 justify-end mt-3">
-                <button type="button" onClick={() => setModalOpen(false)} className="px-4 py-2 rounded-[8px] text-[13px] border cursor-pointer" style={{ borderColor: 'var(--app-border)', background: 'transparent', color: 'var(--app-text)' }}>Cancel</button>
-                <button type="submit" disabled={saving} className="px-4 py-2 rounded-[8px] text-[13px] font-medium cursor-pointer border-0" style={{ background: 'var(--accent)', color: '#000', opacity: saving ? 0.6 : 1 }}>{saving ? 'Saving…' : 'Add Supplier'}</button>
+                <div style={{ marginTop: 8, height: 4, borderRadius: 4, background: 'var(--app-border)', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${score}%`, background: score >= 90 ? 'var(--green)' : score >= 70 ? 'var(--amber)' : 'var(--red)' }} />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 10, fontSize: 12, color: 'var(--app-text-muted)' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Mail size={12} /> {s.email}</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Phone size={12} /> {s.phone || '—'} · {s.averageDeliveryDays ?? 0}d avg lead</span>
+                </div>
               </div>
-            </form>
-          </div>
+            );
+          })}
         </div>
       )}
-    </motion.div>
+
+      <Modal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title="Add Supplier"
+        footer={
+          <>
+            <button onClick={() => setModalOpen(false)} className="ent-btn ent-btn-secondary">Cancel</button>
+            <button onClick={handleAdd} disabled={saving} className="ent-btn ent-btn-primary">{saving ? 'Saving…' : 'Add Supplier'}</button>
+          </>
+        }
+      >
+        <form onSubmit={handleAdd} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {[
+            { k: 'name', label: 'Company name', ph: 'Acme Foods', req: true },
+            { k: 'contactPerson', label: 'Contact person', ph: 'Jane Doe', req: true },
+            { k: 'email', label: 'Email', ph: 'ops@acme.com', type: 'email', req: true },
+            { k: 'phone', label: 'Phone', ph: '+1 555 0100', req: true },
+            { k: 'address', label: 'Address', ph: '123 Market St', req: true },
+          ].map((f) => (
+            <div key={f.k}>
+              <label className="ent-label" htmlFor={`sup-${f.k}`}>{f.label}</label>
+              <input id={`sup-${f.k}`} required={f.req} type={f.type || 'text'} value={form[f.k]}
+                onChange={(e) => setForm({ ...form, [f.k]: e.target.value })} placeholder={f.ph} className="ent-input" />
+            </div>
+          ))}
+        </form>
+      </Modal>
+    </div>
   );
 };
 

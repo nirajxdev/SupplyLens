@@ -1,22 +1,18 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useDispatch, useSelector } from 'react-redux';
 import { addProduct } from '../redux/slices/productSlice';
 import { fetchSuppliers, addSupplier } from '../redux/slices/supplierSlice';
 import { Plus, X } from 'lucide-react';
-import FormInput from '../components/auth/FormInput';
-import SubmitButton from '../components/auth/SubmitButton';
 
 const AddProduct = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { items: suppliers } = useSelector(state => state.suppliers);
+  const { items: suppliers } = useSelector((state) => state.suppliers);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ name: '', sku: '', category: '', quantity: '', reorderPoint: '', supplier: '', price: '' });
-  
-  // Inline Supplier Creation State
+
   const [showAddSupplier, setShowAddSupplier] = useState(false);
   const [supplierLoading, setSupplierLoading] = useState(false);
   const [newSupplier, setNewSupplier] = useState({ name: '', contactPerson: '', email: '', phone: '', address: '' });
@@ -30,17 +26,16 @@ const AddProduct = () => {
   const handleAddSupplier = async (e) => {
     e.preventDefault();
     if (!newSupplier.name || !newSupplier.contactPerson || !newSupplier.email || !newSupplier.phone || !newSupplier.address) {
-      return toast.error("Please fill all supplier fields");
+      return toast.error('Please fill all supplier fields');
     }
-    
     setSupplierLoading(true);
     try {
-      const added = await dispatch(addSupplier({ 
-        name: newSupplier.name.trim(), 
+      const added = await dispatch(addSupplier({
+        name: newSupplier.name.trim(),
         contactPerson: newSupplier.contactPerson.trim(),
-        email: newSupplier.email.toLowerCase().trim(), 
+        email: newSupplier.email.toLowerCase().trim(),
         phone: newSupplier.phone.trim(),
-        address: newSupplier.address.trim()
+        address: newSupplier.address.trim(),
       })).unwrap();
       const addedId = added?._id || added?.id || added?.data?._id;
       toast.success(`${newSupplier.name} added as supplier`);
@@ -48,7 +43,7 @@ const AddProduct = () => {
       setShowAddSupplier(false);
       setNewSupplier({ name: '', contactPerson: '', email: '', phone: '', address: '' });
     } catch (err) {
-      toast.error(err || "Failed to add supplier");
+      toast.error(err || 'Failed to add supplier');
     } finally {
       setSupplierLoading(false);
     }
@@ -57,24 +52,19 @@ const AddProduct = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (showAddSupplier) {
-      toast.info("Finish or close the supplier form first");
+      toast.info('Finish or close the supplier form first');
       return;
     }
-
-    setLoading(true);
-    
     if (!form.supplier) {
-      toast.error("Please select a supplier");
-      setLoading(false);
+      toast.error('Please select a supplier');
       return;
     }
-
+    setLoading(true);
     try {
-      const productData = {
+      await dispatch(addProduct({
         name: form.name.trim(),
         sku: form.sku.trim(),
         category: form.category.trim() || 'General',
-        // Canonical backend fields (aliases currentStock/lowStockThreshold also accepted)
         stockQuantity: Number(form.quantity),
         currentStock: Number(form.quantity),
         lowStockThreshold: Number(form.reorderPoint) || 5,
@@ -83,135 +73,102 @@ const AddProduct = () => {
         unitPrice: Number(form.price),
         supplier: form.supplier,
         supplierId: form.supplier,
-      };
-      
-      await dispatch(addProduct(productData)).unwrap();
+      })).unwrap();
       toast.success(`${form.name} added to inventory`);
       navigate('/dashboard/inventory');
     } catch (err) {
-      toast.error(err || "Failed to add product");
+      toast.error(err || 'Failed to add product');
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <motion.div className="p-8 max-w-lg" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-      <h1 style={{ fontSize: '28px', fontWeight: 500, letterSpacing: '-0.8px', marginBottom: '32px' }}>Add Product</h1>
+  const field = (label, name, extra = {}) => (
+    <div>
+      <label className="ent-label" htmlFor={`ap-${name}`}>{label}{extra.required && ' *'}</label>
+      <input id={`ap-${name}`} name={name} value={form[name]} onChange={handleChange} className="ent-input" {...extra} />
+    </div>
+  );
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-        <FormInput label="Product Name" name="name" value={form.name} onChange={handleChange} placeholder="e.g. Rice Flour 5kg" required />
-        <FormInput label="SKU" name="sku" value={form.sku} onChange={handleChange} placeholder="e.g. SKU-0285" required />
-        <div className="grid grid-cols-2 gap-4">
-          <FormInput label="Category" name="category" value={form.category} onChange={handleChange} placeholder="e.g. Raw Materials" />
-          <FormInput label="Price (Unit)" type="number" name="price" value={form.price} onChange={handleChange} placeholder="0.00" required />
+  return (
+    <div className="ent-page" style={{ maxWidth: 640 }}>
+      <div className="ent-page-header">
+        <div>
+          <div className="ent-page-title">Add Product</div>
+          <div className="ent-page-sub">Creates a new SKU with opening stock.</div>
         </div>
-        <div className="grid grid-cols-2 gap-4">
-          <FormInput label="Quantity" type="number" name="quantity" value={form.quantity} onChange={handleChange} placeholder="0" required />
-          <FormInput label="Reorder Point" type="number" name="reorderPoint" value={form.reorderPoint} onChange={handleChange} placeholder="50" />
+      </div>
+
+      <form onSubmit={handleSubmit} className="ent-card ent-card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <div style={{ gridColumn: '1 / -1' }}>{field('Product name', 'name', { placeholder: 'Rice Flour 5kg', required: true })}</div>
+          <div style={{ gridColumn: '1 / -1' }}>{field('SKU', 'sku', { placeholder: 'SKU-0285', required: true })}</div>
+          {field('Category', 'category', { placeholder: 'Raw Materials' })}
+          {field('Unit price ($)', 'price', { type: 'number', min: 0, step: '0.01', placeholder: '0.00', required: true })}
+          {field('Opening quantity', 'quantity', { type: 'number', min: 0, placeholder: '0', required: true })}
+          {field('Reorder point', 'reorderPoint', { type: 'number', min: 0, placeholder: '50' })}
         </div>
-        
-        <div className="flex flex-col gap-2 relative">
-          <div className="flex items-center justify-between">
-            <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--app-text)' }}>Supplier</label>
+
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+            <label className="ent-label" htmlFor="ap-supplier" style={{ marginBottom: 0 }}>Supplier *</label>
             {!showAddSupplier && (
-              <button 
-                type="button" 
-                onClick={() => setShowAddSupplier(true)}
-                className="flex items-center gap-1 bg-transparent border-0 cursor-pointer transition-opacity hover:opacity-70"
-                style={{ fontSize: '12px', fontWeight: 500, color: 'var(--accent)' }}
-              >
+              <button type="button" onClick={() => setShowAddSupplier(true)} className="ent-btn ent-btn-ghost ent-btn-sm">
                 <Plus size={12} /> New Supplier
               </button>
             )}
           </div>
-          
           {showAddSupplier ? (
-            <motion.div 
-              initial={{ opacity: 0, height: 0 }} 
-              animate={{ opacity: 1, height: 'auto' }} 
-              className="p-4 rounded-lg flex flex-col gap-3"
-              style={{ background: 'var(--app-overlay)', border: '1px solid var(--app-border)' }}
-            >
-              <div className="flex items-center justify-between mb-1">
-                <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--app-text)' }}>Quick Add Supplier</span>
-                <button 
-                  type="button" 
-                  onClick={() => setShowAddSupplier(false)}
-                  className="bg-transparent border-0 cursor-pointer text-gray-400 hover:text-gray-600"
-                >
-                  <X size={14} />
+            <div style={{ padding: 12, background: 'var(--app-inset)', border: '1px solid var(--app-border)', borderRadius: 6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <span style={{ fontSize: 12.5, fontWeight: 650 }}>Quick-add supplier</span>
+                <button type="button" onClick={() => setShowAddSupplier(false)} aria-label="Close supplier form"
+                  className="ent-btn ent-btn-ghost ent-btn-sm" style={{ padding: '0 6px' }}>
+                  <X size={13} />
                 </button>
               </div>
-              
-              <div className="grid grid-cols-2 gap-3">
-                <FormInput 
-                  label="Supplier Name" 
-                  name="supplierName"
-                  value={newSupplier.name} 
-                  onChange={e => setNewSupplier({...newSupplier, name: e.target.value})} 
-                  placeholder="e.g. Acme Corp" 
-                />
-                <FormInput 
-                  label="Contact Person" 
-                  name="contactPerson"
-                  value={newSupplier.contactPerson} 
-                  onChange={e => setNewSupplier({...newSupplier, contactPerson: e.target.value})} 
-                  placeholder="e.g. Jane Doe" 
-                />
-                <FormInput 
-                  label="Email" 
-                  name="supplierEmail"
-                  type="email"
-                  value={newSupplier.email} 
-                  onChange={e => setNewSupplier({...newSupplier, email: e.target.value})} 
-                  placeholder="contact@acme.com" 
-                />
-                <FormInput 
-                  label="Phone" 
-                  name="supplierPhone"
-                  value={newSupplier.phone} 
-                  onChange={e => setNewSupplier({...newSupplier, phone: e.target.value})} 
-                  placeholder="+1 234 567" 
-                />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                {[
+                  { k: 'name', label: 'Company', ph: 'Acme Corp' },
+                  { k: 'contactPerson', label: 'Contact', ph: 'Jane Doe' },
+                  { k: 'email', label: 'Email', ph: 'ops@acme.com', type: 'email' },
+                  { k: 'phone', label: 'Phone', ph: '+1 555 0100' },
+                ].map((f) => (
+                  <div key={f.k}>
+                    <label className="ent-label" htmlFor={`ns-${f.k}`}>{f.label}</label>
+                    <input id={`ns-${f.k}`} type={f.type || 'text'} value={newSupplier[f.k]}
+                      onChange={(e) => setNewSupplier({ ...newSupplier, [f.k]: e.target.value })}
+                      placeholder={f.ph} className="ent-input" />
+                  </div>
+                ))}
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label className="ent-label" htmlFor="ns-address">Address</label>
+                  <input id="ns-address" value={newSupplier.address}
+                    onChange={(e) => setNewSupplier({ ...newSupplier, address: e.target.value })}
+                    placeholder="123 Market St" className="ent-input" />
+                </div>
               </div>
-              <FormInput 
-                label="Address" 
-                name="supplierAddress"
-                value={newSupplier.address} 
-                onChange={e => setNewSupplier({...newSupplier, address: e.target.value})} 
-                placeholder="123 Main St, City" 
-              />
-              
-              <button 
-                type="button"
-                onClick={handleAddSupplier}
-                disabled={supplierLoading}
-                className="w-full h-9 rounded-md mt-1 font-medium cursor-pointer flex items-center justify-center transition-opacity hover:opacity-90"
-                style={{ background: 'var(--accent)', color: '#fff', fontSize: '13px' }}
-              >
-                {supplierLoading ? 'Saving...' : 'Save & Select'}
+              <button type="button" onClick={handleAddSupplier} disabled={supplierLoading}
+                className="ent-btn ent-btn-primary ent-btn-sm" style={{ width: '100%', marginTop: 10 }}>
+                {supplierLoading ? 'Saving…' : 'Save & Select'}
               </button>
-            </motion.div>
+            </div>
           ) : (
-            <select 
-              name="supplier" 
-              value={form.supplier} 
-              onChange={handleChange}
-              className="w-full h-11 px-3 rounded-[8px] outline-none transition-colors"
-              style={{ background: 'var(--app-bg)', border: '1px solid var(--border)', color: 'var(--app-text)', fontSize: '14px' }}
-              required
-            >
+            <select id="ap-supplier" name="supplier" value={form.supplier} onChange={handleChange} className="ent-select" required>
               <option value="">Select a supplier</option>
-              {suppliers && suppliers.map(s => (
-                <option key={s._id || s.id} value={s._id || s.id}>{s.name || s.companyName}</option>
+              {suppliers?.map((s) => (
+                <option key={s._id || s.id} value={s._id || s.id}>{s.name}</option>
               ))}
             </select>
           )}
         </div>
-        <SubmitButton loading={loading}>Add Product</SubmitButton>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, paddingTop: 4, borderTop: '1px solid var(--app-border)', marginTop: 2 }}>
+          <button type="button" onClick={() => navigate('/dashboard/inventory')} className="ent-btn ent-btn-secondary">Cancel</button>
+          <button type="submit" disabled={loading} className="ent-btn ent-btn-primary">{loading ? 'Saving…' : 'Add Product'}</button>
+        </div>
       </form>
-    </motion.div>
+    </div>
   );
 };
 

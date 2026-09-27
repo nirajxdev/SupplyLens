@@ -10,13 +10,11 @@ import Footer from '../components/landing/Footer';
 
 const Landing = () => {
   return (
-    <div className="landing-page-wrapper" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
+    <div style={{ background: 'var(--bg)', color: 'var(--text)' }}>
       <Navbar />
       <Hero />
-      <div style={{ paddingTop: '40px', paddingBottom: '60px' }}>
-        <div className="mx-auto px-6 md:px-12" style={{ maxWidth: '1200px' }}>
-          <DashboardPreview />
-        </div>
+      <div className="container-max" style={{ paddingBottom: 56 }}>
+        <DashboardPreview />
       </div>
       <StatBar />
       <BentoGrid />

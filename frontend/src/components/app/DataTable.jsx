@@ -1,80 +1,50 @@
-import { motion } from 'framer-motion';
-
-const DataTable = ({ columns, data, onRowClick, renderActions }) => {
+const DataTable = ({ columns, data, onRowClick, renderActions, emptyTitle = 'No records found', emptySub = '', emptyAction = null, minWidth = 640 }) => {
+  if (!data || data.length === 0) {
+    return (
+      <div className="ent-table-wrap">
+        <div className="ent-empty">
+          <p className="ent-empty-title">{emptyTitle}</p>
+          {emptySub && <p className="ent-empty-sub">{emptySub}</p>}
+          {emptyAction && <div style={{ marginTop: 12 }}>{emptyAction}</div>}
+        </div>
+      </div>
+    );
+  }
   return (
-    <div className="overflow-x-auto rounded-[12px]" style={{ border: '1px solid var(--app-border)' }}>
-      <table className="w-full" style={{ borderCollapse: 'collapse' }}>
+    <div className="ent-table-wrap">
+      <table className="ent-table" style={{ minWidth }}>
         <thead>
-          <tr style={{ borderBottom: '1px solid var(--app-border)' }}>
+          <tr>
             {columns.map((col) => (
-              <th
-                key={col.key}
-                className="text-left py-3 px-4"
-                style={{
-                  fontSize: '11px',
-                  fontWeight: 500,
-                  letterSpacing: '0.6px',
-                  textTransform: 'uppercase',
-                  color: 'var(--app-text-muted)',
-                  background: 'var(--app-surface)',
-                }}
-              >
+              <th key={col.key} className={col.numeric ? 'num' : ''} scope="col">
                 {col.label}
               </th>
             ))}
-            {renderActions && (
-              <th
-                className="text-right py-3 px-4"
-                style={{
-                  fontSize: '11px',
-                  fontWeight: 500,
-                  letterSpacing: '0.6px',
-                  textTransform: 'uppercase',
-                  color: 'var(--app-text-muted)',
-                  background: 'var(--app-surface)',
-                }}
-              />
-            )}
+            {renderActions && <th scope="col" style={{ textAlign: 'right' }}>Actions</th>}
           </tr>
         </thead>
         <tbody>
           {data.map((row, i) => (
-            <motion.tr
-              key={row.id || i}
-              className="group cursor-pointer transition-colors duration-150"
-              style={{ borderBottom: '1px solid var(--app-border)' }}
-              initial={{ opacity: 0, x: -16 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3, delay: i * 0.03, ease: 'easeOut' }}
-              onClick={() => onRowClick?.(row)}
-              onMouseEnter={e => {
-                e.currentTarget.style.background = 'var(--app-overlay)';
-                e.currentTarget.style.borderLeft = '2px solid var(--accent)';
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.background = 'transparent';
-                e.currentTarget.style.borderLeft = '2px solid transparent';
-              }}
+            <tr
+              key={row._id || row.id || i}
+              className={onRowClick ? 'clickable' : ''}
+              onClick={onRowClick ? () => onRowClick(row) : undefined}
             >
               {columns.map((col) => (
-                <td
-                  key={col.key}
-                  className="py-3 px-4"
-                  style={{
-                    fontSize: '14px',
-                    color: 'var(--app-text)',
-                    fontFamily: col.mono ? 'var(--font-mono)' : 'inherit',
-                  }}
-                >
-                  {col.render ? col.render(row[col.key], row) : row[col.key]}
+                <td key={col.key} className={col.numeric ? 'num' : ''}>
+                  {col.mono ? (
+                    <span className="ent-mono">{col.render ? col.render(row[col.key], row) : row[col.key]}</span>
+                  ) : (
+                    col.render ? col.render(row[col.key], row) : row[col.key]
+                  )}
                 </td>
               ))}
               {renderActions && (
-                <td className="py-3 px-4 text-right">
+                <td style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
                   {renderActions(row)}
                 </td>
               )}
-            </motion.tr>
+            </tr>
           ))}
         </tbody>
       </table>

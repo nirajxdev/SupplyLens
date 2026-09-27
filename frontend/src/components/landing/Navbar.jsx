@@ -1,75 +1,56 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
+const LINKS = [
+  { label: 'Product', href: '#features' },
+  { label: 'How it works', href: '#how-it-works' },
+  { label: 'Compare', href: '#compare' },
+  { label: 'Pricing', href: '#pricing' },
+];
+
 const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    const handler = () => setScrolled(window.scrollY > 10);
+    const handler = () => setScrolled(window.scrollY > 8);
     window.addEventListener('scroll', handler, { passive: true });
     return () => window.removeEventListener('scroll', handler);
   }, []);
 
   return (
-    <nav
-      className="fixed top-0 left-0 right-0 z-50 transition-all duration-300"
+    <header
+      className="fixed top-0 left-0 right-0 z-50"
       style={{
-        background: scrolled ? 'rgba(248,249,250,0.92)' : 'transparent',
-        backdropFilter: scrolled ? 'blur(12px)' : 'none',
-        borderBottom: scrolled ? '1px solid #e2e8f0' : '1px solid transparent',
+        background: scrolled ? 'rgba(255,255,255,0.94)' : '#fff',
+        backdropFilter: scrolled ? 'blur(8px)' : 'none',
+        borderBottom: '1px solid var(--border)',
       }}
     >
-      <div
-        className="flex items-center justify-between mx-auto px-6 md:px-12"
-        style={{ maxWidth: '1200px', height: '64px' }}
-      >
-        <Link to="/" style={{ fontSize: '17px', fontWeight: 600, color: '#0f172a', letterSpacing: '-0.3px' }}>
-          SupplyLens
+      <div className="container-max" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 56 }}>
+        <Link to="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
+          <span style={{ width: 24, height: 24, borderRadius: 6, background: 'var(--accent)', color: '#fff',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800 }}>S</span>
+          <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-0.2px', color: 'var(--text)' }}>SupplyLens</span>
         </Link>
 
-        <div className="hidden md:flex items-center gap-8">
-          {['Features', 'How it works', 'Compare', 'Docs'].map(link => (
-            <a
-              key={link}
-              href={`#${link.toLowerCase().replace(/\s/g, '-')}`}
-              style={{ fontSize: '15px', color: '#64748b', fontWeight: 450 }}
-              className="hover:text-[#0f172a] transition-colors"
-            >
-              {link}
+        <nav className="hidden md:flex items-center gap-6" aria-label="Primary">
+          {LINKS.map((l) => (
+            <a key={l.label} href={l.href} style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--text-secondary)', textDecoration: 'none' }}>
+              {l.label}
             </a>
           ))}
-        </div>
+        </nav>
 
-        <div className="flex items-center gap-3 md:gap-5">
-          <Link to="/login" style={{ fontSize: '14px', fontWeight: 600, color: '#0f172a' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Link to="/login" style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)', textDecoration: 'none' }}>
             Log in
           </Link>
-          <Link to="/signup">
-            <button
-              className="px-3 md:px-5 py-2 md:py-2.5 rounded-[10px] md:rounded-[12px] cursor-pointer border-0 whitespace-nowrap"
-              style={{ background: '#0f172a', color: '#fff', fontSize: '13px', fontWeight: 500 }}
-            >
-              Get started
-            </button>
+          <Link to="/signup" className="ent-btn ent-btn-primary ent-btn-sm" style={{ textDecoration: 'none' }}>
+            Get started
           </Link>
         </div>
       </div>
-      
-      {/* Mobile minimal navigation */}
-      <div className="md:hidden flex items-center justify-center gap-6 px-4 py-2 overflow-x-auto hide-scrollbar"
-        style={{ borderTop: scrolled ? '1px solid #e2e8f0' : '1px solid transparent' }}>
-        {['Features', 'How it works', 'Compare', 'Docs'].map(link => (
-          <a
-            key={link}
-            href={`#${link.toLowerCase().replace(/\s/g, '-')}`}
-            style={{ fontSize: '12px', color: '#64748b', fontWeight: 500, whiteSpace: 'nowrap' }}
-            className="hover:text-[#0f172a] transition-colors"
-          >
-            {link}
-          </a>
-        ))}
-      </div>
-    </nav>
+    </header>
   );
 };
 

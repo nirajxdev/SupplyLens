@@ -1,51 +1,38 @@
-import { motion } from 'framer-motion';
-import { useAnimatedCounter } from '../../hooks/useAnimatedCounter';
 import { Link } from 'react-router-dom';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 
-const StatCard = ({ label, value, suffix = '', prefix = '', decimals = 0, accentBorder, icon: Icon, link, trend }) => {
-  const { ref, displayValue } = useAnimatedCounter(value, { duration: 1.5, decimals, prefix, suffix });
+const formatValue = (value, { decimals = 0, prefix = '', suffix = '' } = {}) => {
+  let num = value;
+  if (typeof num === 'string') {
+    const parsed = parseFloat(num.replace(/[^0-9.\-]/g, ''));
+    num = Number.isFinite(parsed) ? parsed : 0;
+  }
+  if (typeof num !== 'number' || !Number.isFinite(num)) num = 0;
+  const formatted = decimals > 0 ? num.toFixed(decimals) : Math.round(num).toLocaleString();
+  return `${prefix}${formatted}${suffix}`;
+};
 
-  const CardContent = (
-    <motion.div
-      ref={ref}
-      className="p-6 rounded-[16px] transition-all duration-200"
-      style={{
-        background: 'var(--app-surface)',
-        border: '1px solid var(--app-border)',
-        borderLeftWidth: accentBorder ? '3px' : '1px',
-        borderLeftColor: accentBorder || 'var(--app-border)',
-        ...(accentBorder ? { boxShadow: `0 0 16px ${accentBorder}33` } : {}),
-      }}
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: 'easeOut' }}
-      whileHover={{ y: -3, borderColor: 'var(--app-border-hover)', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
-    >
-      <div className="flex items-center justify-between mb-2">
-        <p style={{ fontSize: '12px', fontWeight: 400, color: 'var(--app-text-muted)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
-          {label}
-        </p>
-        {Icon && <Icon size={16} style={{ color: 'var(--app-text-muted)' }} />}
+const StatCard = ({ label, value, suffix = '', prefix = '', decimals = 0, icon: Icon, link, trend }) => {
+  const display = formatValue(value, { decimals, prefix, suffix });
+  const content = (
+    <div className="ent-kpi">
+      <div className="ent-kpi-label">
+        <span>{label}</span>
+        {Icon && <Icon size={14} style={{ color: 'var(--app-text-faint)' }} />}
       </div>
-      <div className="flex items-end justify-between">
-        <p style={{ fontSize: '28px', fontWeight: 500, letterSpacing: '-1px', color: 'var(--app-text)' }}>
-          {displayValue}
-        </p>
-        {trend && (
-          <div className="flex items-center gap-1 mb-1" style={{ color: trend > 0 ? 'var(--green)' : 'var(--red)', fontSize: '12px', fontWeight: 500 }}>
-            {trend > 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 8 }}>
+        <span className="ent-kpi-value">{display}</span>
+        {typeof trend === 'number' && (
+          <span className={`ent-kpi-delta ${trend >= 0 ? 'up' : 'down'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 2, marginBottom: 3 }}>
+            {trend >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
             {Math.abs(trend)}%
-          </div>
+          </span>
         )}
       </div>
-    </motion.div>
+    </div>
   );
-
-  if (link) {
-    return <Link to={link} style={{ textDecoration: 'none' }}>{CardContent}</Link>;
-  }
-  return CardContent;
+  if (link) return <Link to={link} style={{ textDecoration: 'none' }}>{content}</Link>;
+  return content;
 };
 
 export default StatCard;

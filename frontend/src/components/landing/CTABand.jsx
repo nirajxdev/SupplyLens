@@ -1,37 +1,30 @@
-import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
+import { ArrowRight } from 'lucide-react';
 
 const CTABand = () => (
-  <section className="py-16 md:pt-20 md:pb-[100px]">
-    <div className="mx-auto px-6 md:px-8" style={{ maxWidth: '1200px' }}>
-      <motion.div
-        className="rounded-3xl px-8 py-16 md:px-16 md:py-24 text-center relative overflow-hidden"
-        style={{ background: '#09090b' }}
-        initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-      >
-        <div className="absolute top-[-60px] left-[-40px] w-[220px] h-[220px] rounded-full pointer-events-none" style={{ background: '#1a1a1e' }} />
-        <div className="absolute bottom-[-60px] right-[10%] w-[120px] h-[120px] rounded-full pointer-events-none" style={{ background: '#141416' }} />
-        <div className="absolute top-[30%] right-[12%] w-[80px] h-[80px] rounded-full pointer-events-none" style={{ background: '#141416' }} />
-
-        <div className="relative z-10">
-          <p style={{ fontSize: '11px', fontWeight: 500, letterSpacing: '2px', textTransform: 'uppercase', color: '#666', marginBottom: '24px' }}>
-            Get Started
-          </p>
-          <h2 style={{ fontSize: 'clamp(28px, 4vw, 42px)', fontWeight: 500, letterSpacing: '-1px', lineHeight: 1.2, color: '#fff', maxWidth: '500px', margin: '0 auto 16px' }}>
-            Stop guessing. Start dispatching orders with data.
+  <section id="pricing" style={{ paddingBottom: 72 }}>
+    <div className="container-max">
+      <div style={{ background: '#0b1e4b', borderRadius: 12, padding: '48px 24px', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: -80, right: -60, width: 280, height: 280, borderRadius: '50%', background: 'rgba(59,130,246,0.18)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', bottom: -100, left: '8%', width: 200, height: 200, borderRadius: '50%', background: 'rgba(59,130,246,0.12)', pointerEvents: 'none' }} />
+        <div style={{ position: 'relative' }}>
+          <p className="ent-section-label" style={{ color: '#93c5fd', marginBottom: 10 }}>Pricing</p>
+          <h2 style={{ fontSize: 'clamp(24px, 4vw, 34px)', fontWeight: 750, letterSpacing: '-0.6px', color: '#fff', maxWidth: 520, margin: '0 auto' }}>
+            Start free. Scale when stock does.
           </h2>
-          <p style={{ fontSize: '14px', color: '#888', marginBottom: '28px' }}>
-            Free tier available. No credit card required.
+          <p style={{ fontSize: 14, color: '#bfdbfe', marginTop: 8 }}>
+            Free tier for small catalogs · No credit card · Cancel anytime
           </p>
-          <Link to="/signup">
-            <button className="px-7 py-3 rounded-[10px] cursor-pointer"
-              style={{ background: '#fff', border: 'none', color: '#111', fontSize: '14px', fontWeight: 500 }}>
-              Start for free
-            </button>
-          </Link>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 22, flexWrap: 'wrap' }}>
+            <Link to="/signup" className="ent-btn" style={{ height: 40, padding: '0 22px', fontSize: 14, background: '#fff', color: '#0b1e4b', textDecoration: 'none', fontWeight: 650 }}>
+              Start for free <ArrowRight size={15} />
+            </Link>
+            <Link to="/login" className="ent-btn" style={{ height: 40, padding: '0 22px', fontSize: 14, background: 'transparent', color: '#fff', border: '1px solid rgba(255,255,255,0.3)', textDecoration: 'none' }}>
+              Talk to sales
+            </Link>
+          </div>
         </div>
-      </motion.div>
+      </div>
     </div>
   </section>
 );

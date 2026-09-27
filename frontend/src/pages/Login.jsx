@@ -54,15 +54,8 @@ const Login = () => {
   };
 
   return (
-    <AuthLayout>
+    <AuthLayout title="Welcome back" subtitle="Log in to your SupplyLens workspace.">
       <AuthBox shake={shake}>
-        <h2 style={{ fontSize: '24px', fontWeight: 600, letterSpacing: '-0.6px', color: 'var(--text)', marginBottom: '4px' }}>
-          Welcome back
-        </h2>
-        <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '28px' }}>
-          Log in to your SupplyLens account
-        </p>
-
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <FormInput label="Email" type="email" name="email" value={form.email} onChange={handleChange} placeholder="you@company.com" required />
           <div>
