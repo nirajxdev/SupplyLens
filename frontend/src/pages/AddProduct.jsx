@@ -36,14 +36,15 @@ const AddProduct = () => {
     setSupplierLoading(true);
     try {
       const added = await dispatch(addSupplier({ 
-        name: newSupplier.name, 
-        contactPerson: newSupplier.contactPerson,
-        email: newSupplier.email, 
-        phone: newSupplier.phone,
-        address: newSupplier.address
+        name: newSupplier.name.trim(), 
+        contactPerson: newSupplier.contactPerson.trim(),
+        email: newSupplier.email.toLowerCase().trim(), 
+        phone: newSupplier.phone.trim(),
+        address: newSupplier.address.trim()
       })).unwrap();
+      const addedId = added?._id || added?.id || added?.data?._id;
       toast.success(`${newSupplier.name} added as supplier`);
-      setForm({ ...form, supplier: added._id || added.id });
+      setForm((prev) => ({ ...prev, supplier: addedId || prev.supplier }));
       setShowAddSupplier(false);
       setNewSupplier({ name: '', contactPerson: '', email: '', phone: '', address: '' });
     } catch (err) {
@@ -55,7 +56,10 @@ const AddProduct = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (showAddSupplier) return; // Prevent main form submission if working on supplier
+    if (showAddSupplier) {
+      toast.info("Finish or close the supplier form first");
+      return;
+    }
 
     setLoading(true);
     
@@ -67,12 +71,17 @@ const AddProduct = () => {
 
     try {
       const productData = {
-        name: form.name,
-        sku: form.sku,
-        category: form.category,
+        name: form.name.trim(),
+        sku: form.sku.trim(),
+        category: form.category.trim() || 'General',
+        // Canonical backend fields (aliases currentStock/lowStockThreshold also accepted)
+        stockQuantity: Number(form.quantity),
         currentStock: Number(form.quantity),
-        lowStockThreshold: Number(form.reorderPoint),
+        lowStockThreshold: Number(form.reorderPoint) || 5,
+        minimumStockLevel: Number(form.reorderPoint) || 5,
         price: Number(form.price),
+        unitPrice: Number(form.price),
+        supplier: form.supplier,
         supplierId: form.supplier,
       };
       
@@ -138,18 +147,21 @@ const AddProduct = () => {
               <div className="grid grid-cols-2 gap-3">
                 <FormInput 
                   label="Supplier Name" 
+                  name="supplierName"
                   value={newSupplier.name} 
                   onChange={e => setNewSupplier({...newSupplier, name: e.target.value})} 
                   placeholder="e.g. Acme Corp" 
                 />
                 <FormInput 
                   label="Contact Person" 
+                  name="contactPerson"
                   value={newSupplier.contactPerson} 
                   onChange={e => setNewSupplier({...newSupplier, contactPerson: e.target.value})} 
                   placeholder="e.g. Jane Doe" 
                 />
                 <FormInput 
                   label="Email" 
+                  name="supplierEmail"
                   type="email"
                   value={newSupplier.email} 
                   onChange={e => setNewSupplier({...newSupplier, email: e.target.value})} 
@@ -157,6 +169,7 @@ const AddProduct = () => {
                 />
                 <FormInput 
                   label="Phone" 
+                  name="supplierPhone"
                   value={newSupplier.phone} 
                   onChange={e => setNewSupplier({...newSupplier, phone: e.target.value})} 
                   placeholder="+1 234 567" 
@@ -164,6 +177,7 @@ const AddProduct = () => {
               </div>
               <FormInput 
                 label="Address" 
+                name="supplierAddress"
                 value={newSupplier.address} 
                 onChange={e => setNewSupplier({...newSupplier, address: e.target.value})} 
                 placeholder="123 Main St, City" 

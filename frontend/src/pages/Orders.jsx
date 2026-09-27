@@ -4,6 +4,8 @@ import StatusPill from '../components/app/StatusPill';
 import DrawerPanel from '../components/app/DrawerPanel';
 import { Link } from 'react-router-dom';
 import RoleGuard from '../components/RoleGuard';
+import { getOrders, updateOrderStatus } from '../Instance/API.js';
+import { toast } from 'sonner';
 
 const Orders = () => {
   const [orders, setOrders] = useState([]);
@@ -18,7 +20,8 @@ const Orders = () => {
       const res = await getOrders();
       setOrders(res.data || res.purchaseOrders || []);
     } catch (error) {
-      console.error(error);
+      toast.error(error.message || 'Failed to load orders');
+      setOrders([]);
     } finally {
       setLoading(false);
     }
@@ -39,11 +42,11 @@ const Orders = () => {
   const executeStatusUpdate = async (orderId, newStatus) => {
     try {
       await updateOrderStatus(orderId, newStatus);
-      // optionally show toast
+      toast.success(`Order marked as ${newStatus}`);
       setConfirmModal({ open: false, order: null, newStatus: null });
       fetchAllOrders(); // refresh
     } catch (err) {
-      alert(err.message || 'Failed to update order status');
+      toast.error(err.message || 'Failed to update order status');
     }
   };
 
@@ -99,25 +102,25 @@ const Orders = () => {
                         </RoleGuard>
                     </td>
                 </tr>
-              ) : orders.map((o, i) => {
+              ) : orders.map((o) => {
                 const totalQty = o.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
                 const formattedDate = o.expectedDeliveryDate ? new Date(o.expectedDeliveryDate).toLocaleDateString() : 'N/A';
                 
                 return (
                   <motion.tr
                     key={o._id}
-                    className="cursor-pointer transition-all duration-200 group"
+                    className="cursor-pointer transition-colors duration-150 group"
                     style={{ borderBottom: '1px solid var(--app-border)' }}
-                    initial={{ opacity: 0, x: -16 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.3, delay: i * 0.04 }}
-                    onMouseEnter={e => { e.currentTarget.style.background = 'var(--app-overlay)'; e.currentTarget.style.borderLeft = '2px solid var(--accent)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderLeft = '2px solid transparent'; }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.2 }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'var(--app-overlay)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
                   >
                     <td className="py-3 px-4" onClick={() => setDrawerOrder(o)} style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: 'var(--accent)' }}>{o._id.substring(o._id.length - 6)}</td>
                     <td className="py-3 px-4" onClick={() => setDrawerOrder(o)} style={{ fontSize: '14px', fontWeight: 500, color: 'var(--app-text)' }}>{o.supplier?.name || 'Unknown'}</td>
                     <td className="py-3 px-4" onClick={() => setDrawerOrder(o)} style={{ fontSize: '14px', fontFamily: 'var(--font-mono)', color: 'var(--app-text)' }}>{totalQty} items</td>
-                    <td className="py-3 px-4" onClick={() => setDrawerOrder(o)} style={{ fontSize: '14px', fontWeight: 500, color: 'var(--app-text)' }}>₹{o.totalAmount}</td>
+                    <td className="py-3 px-4" onClick={() => setDrawerOrder(o)} style={{ fontSize: '14px', fontWeight: 500, color: 'var(--app-text)' }}>${o.totalAmount}</td>
                     <td className="py-3 px-4" onClick={() => setDrawerOrder(o)} style={{ fontSize: '13px', color: 'var(--app-text-muted)' }}>{formattedDate}</td>
                     <td className="py-3 px-4" onClick={() => setDrawerOrder(o)}>
                         <StatusPill status={o.status} />
@@ -125,7 +128,8 @@ const Orders = () => {
                     <td className="py-3 px-4 text-right">
                         {['pending', 'shipped'].includes(o.status) && (
                             <select 
-                                value="" 
+                                value=""
+                                aria-label={`Change status for order ${o._id}`}
                                 onChange={(e) => handleStatusChangeClick(o, e.target.value)}
                                 className="px-2 py-1 rounded-[6px] text-[12px] font-medium border outline-none"
                                 style={{ background: 'var(--app-surface)', borderColor: 'var(--app-border)', color: 'var(--app-text)' }}
@@ -152,7 +156,7 @@ const Orders = () => {
               {[
                 { label: 'Order ID', value: drawerOrder._id },
                 { label: 'Supplier', value: drawerOrder.supplier?.name },
-                { label: 'Total Amount', value: `₹${drawerOrder.totalAmount}` },
+                { label: 'Total Amount', value: `$${drawerOrder.totalAmount}` },
                 { label: 'Expected Date', value: drawerOrder.expectedDeliveryDate ? new Date(drawerOrder.expectedDeliveryDate).toLocaleDateString() : 'N/A' },
                 { label: 'Status', value: <StatusPill status={drawerOrder.status} /> },
               ].map(({ label, value }) => (
@@ -172,7 +176,7 @@ const Orders = () => {
                                 <span style={{ fontSize: '13px', color: 'var(--app-text)' }}>{item.product?.name || 'Product'}</span>
                                 <span style={{ fontSize: '11px', color: 'var(--app-text-muted)' }}>Qty: {item.quantity}</span>
                             </div>
-                            <span style={{ fontSize: '13px', fontWeight: 500 }}>₹{item.unitPrice * item.quantity}</span>
+                            <span style={{ fontSize: '13px', fontWeight: 500 }}>${item.unitPrice * item.quantity}</span>
                         </div>
                     ))}
                 </div>

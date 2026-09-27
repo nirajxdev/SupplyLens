@@ -9,7 +9,6 @@ const productSchema = new mongoose.Schema({
     sku: {
         type: String,
         required: true,
-        unique: true,
         trim: true
     },
     description: {
@@ -27,7 +26,7 @@ const productSchema = new mongoose.Schema({
     },
     price: {
         type: Number,
-        required: true,
+        required: false,
         min: 0
     },
     currentStock: {
@@ -38,7 +37,7 @@ const productSchema = new mongoose.Schema({
     },
     stockQuantity: {
         type: Number,
-        required: true,
+        required: false,
         default: 0,
         min: 0
     },
@@ -50,7 +49,7 @@ const productSchema = new mongoose.Schema({
     },
     lowStockThreshold: {
         type: Number,
-        required: true,
+        required: false,
         default: 5,
         min: 0
     },
@@ -72,12 +71,12 @@ const productSchema = new mongoose.Schema({
     supplierId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Supplier",
-        required: true
+        required: false
     },
     supplier: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Supplier",
-        required: true
+        required: false
     },
     organization: {
         type: String,
@@ -139,6 +138,9 @@ productSchema.pre('save', function() {
     }
 });
 
+productSchema.index({ organization: 1, sku: 1 }, { unique: true });
+productSchema.index({ organization: 1, createdAt: -1 });
+productSchema.index({ organization: 1, supplier: 1 });
 productSchema.index({ currentStock: 1 });
 productSchema.index({ supplierId: 1 });
 

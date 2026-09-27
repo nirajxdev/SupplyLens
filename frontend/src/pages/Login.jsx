@@ -68,9 +68,9 @@ const Login = () => {
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text)' }}>Password</label>
-              <span style={{ fontSize: '13px', color: 'var(--text-tertiary)', cursor: 'pointer' }} className="hover:opacity-70 transition-opacity">
+              <button type="button" onClick={() => toast.info('Password reset is not enabled yet — contact your admin.')} style={{ fontSize: '13px', color: 'var(--text-tertiary)', cursor: 'pointer', background: 'transparent', border: 0 }} className="hover:opacity-70 transition-opacity">
                 Forgot?
-              </span>
+              </button>
             </div>
             <FormInput type="password" name="password" value={form.password} onChange={handleChange} placeholder="••••••••" required error={error} />
           </div>

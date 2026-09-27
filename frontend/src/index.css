@@ -47,6 +47,11 @@
   --amber:          #f59e0b;
   --red:            #ef4444;
   --blue:           #3b82f6;
+  --green-glow: color-mix(in srgb, #10b981 12%, transparent);
+  --amber-glow: color-mix(in srgb, #f59e0b 12%, transparent);
+  --red-glow: color-mix(in srgb, #ef4444 12%, transparent);
+  --blue-glow: color-mix(in srgb, #3b82f6 12%, transparent);
+  --accent-glow: color-mix(in srgb, #10b981 14%, transparent);
 
   /* Chart palette */
   --chart-1: #10b981;
@@ -158,3 +163,12 @@ img, svg { display: block; max-width: 100%; }
 .hero-gradient {
   background: radial-gradient(circle at 50% -20%, rgba(16, 185, 129, 0.08) 0%, transparent 60%);
 }
+
+.btn-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.btn-shimmer:hover { filter: brightness(0.96); }
+.btn-shimmer:active { transform: scale(0.98); }
+
+.radius-modal { border-radius: 16px; }

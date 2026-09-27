@@ -8,7 +8,9 @@ export const useAuth = () => {
     role: user?.role,
     isAuthenticated,
     checkingAuth,
-    token: null, // Token is securely managed via HTTP-only cookies
+    // Dual auth: Bearer token in localStorage (for API header) + HttpOnly cookie (credentials:include).
+    // Token presence is checked lazily to avoid SSR/localStorage crashes.
+    token: typeof window !== 'undefined' ? localStorage.getItem('token') : null,
   };
 };
 

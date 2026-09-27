@@ -13,47 +13,53 @@ export const getProductForecast = async (req, res) => {
             return res.status(404).json({ success: false, message: "Product not found." });
         }
 
-        // Fetch past 90 days of SOLD movements
+        // Fetch past 90 days of outbound movements (SOLD + OUT — stockOut was ignored before)
         const ninetyDaysAgo = new Date();
         ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
         const movements = await StockMovement.find({
-            productId: product._id,
             organization: req.user.organization,
-            type: "SOLD",
-            createdAt: { $gte: ninetyDaysAgo }
-        }).sort({ createdAt: 1 });
+            type: { $in: ["SOLD", "OUT"] },
+            createdAt: { $gte: ninetyDaysAgo },
+            $or: [{ product: product._id }, { productId: product._id }]
+        }).sort({ createdAt: 1 }).lean();
 
-        // Group by week (7-day buckets)
-        // For simplicity, we just bucket by week index starting from 90 days ago
+        // Group by week (7-day buckets, floor — day 0 belongs to week 0)
         const weeklyData = [];
         for (let i = 0; i < 13; i++) {
             weeklyData.push({ weekStart: new Date(ninetyDaysAgo.getTime() + (i * 7 * 24 * 60 * 60 * 1000)), totalSold: 0 });
         }
 
         movements.forEach(m => {
-            const diffTime = Math.abs(m.createdAt - ninetyDaysAgo);
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            const diffTime = m.createdAt - ninetyDaysAgo;
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
             let weekIndex = Math.floor(diffDays / 7);
+            if (weekIndex < 0) weekIndex = 0;
             if (weekIndex > 12) weekIndex = 12; // cap to 12
             weeklyData[weekIndex].totalSold += m.quantity;
         });
 
         const dataPointsUsed = movements.length;
-        const totalWeeksActive = weeklyData.filter(w => w.totalSold > 0).length;
+        const activeWeeks = weeklyData.filter(w => w.totalSold > 0);
+        const totalWeeksActive = activeWeeks.length;
 
-        // 1. Moving Average (4-week window)
+        // 1. Moving Average (4-week window, divide by actual weeks present)
         let maPredictedWeeklyDemand = 0;
         if (totalWeeksActive > 0) {
             const last4Weeks = weeklyData.slice(-4);
             const sumLast4 = last4Weeks.reduce((sum, w) => sum + w.totalSold, 0);
-            maPredictedWeeklyDemand = Math.round(sumLast4 / 4);
+            const activeInWindow = last4Weeks.filter(w => w.totalSold > 0).length || 1;
+            // Use min(4, active) to avoid 4x underestimate on sparse data
+            maPredictedWeeklyDemand = Math.round(sumLast4 / Math.min(4, Math.max(activeInWindow, totalWeeksActive > 0 ? Math.min(totalWeeksActive, 4) : 1)));
         }
 
-        // 2. Exponential Smoothing (alpha = 0.3)
+        // 2. Exponential Smoothing (alpha = 0.3), init to mean of active weeks (not week-0 which is often stale)
         const alpha = 0.3;
-        let esPredictedWeeklyDemand = weeklyData[0]?.totalSold || 0;
-        for (let i = 1; i < weeklyData.length; i++) {
+        const initES = totalWeeksActive > 0
+            ? activeWeeks.reduce((s, w) => s + w.totalSold, 0) / totalWeeksActive
+            : 0;
+        let esPredictedWeeklyDemand = initES;
+        for (let i = 0; i < weeklyData.length; i++) {
             esPredictedWeeklyDemand = (alpha * weeklyData[i].totalSold) + ((1 - alpha) * esPredictedWeeklyDemand);
         }
         esPredictedWeeklyDemand = Math.round(esPredictedWeeklyDemand);
@@ -74,12 +80,13 @@ export const getProductForecast = async (req, res) => {
                     }
                 },
                 dataPointsUsed,
-                confidenceScore: dataPointsUsed > 10 ? 0.8 : (dataPointsUsed > 5 ? 0.5 : 0.2),
-                warning: dataPointsUsed < 14 ? "Insufficient data — less than 4 weeks of sales history" : null
+                weeksActive: totalWeeksActive,
+                confidenceScore: Number((dataPointsUsed > 10 ? 0.8 : (dataPointsUsed > 5 ? 0.5 : 0.2)).toFixed(2)),
+                warning: totalWeeksActive < 4 ? "Insufficient data — less than 4 weeks of sales history" : null
             }
         });
 
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message || "Server Error" });
+        res.status(500).json({ success: false, message: "Server Error" });
     }
 };

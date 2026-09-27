@@ -1,26 +1,31 @@
 import { motion, AnimatePresence } from 'framer-motion';
 
 const statusConfig = {
-  'in-stock':     { label: 'In Stock',     color: 'var(--green)',  glow: 'var(--green-glow)' },
-  'reorder-soon': { label: 'Reorder Soon', color: 'var(--amber)',  glow: 'var(--amber-glow)' },
-  'critical':     { label: 'Critical',     color: 'var(--red)',    glow: 'var(--red-glow)'   },
-  'pending':      { label: 'Pending',      color: 'var(--app-text-muted)', glow: 'transparent'   },
-  'shipped':      { label: 'Shipped',      color: 'var(--blue)',   glow: 'var(--blue-glow)'  },
-  'delivered':    { label: 'Delivered',     color: 'var(--green)',  glow: 'var(--green-glow)' },
-  'cancelled':    { label: 'Cancelled',    color: 'var(--red)',    glow: 'var(--red-glow)'   },
-  'high':         { label: 'HIGH',         color: 'var(--red)',    glow: 'var(--red-glow)'   },
-  'medium':       { label: 'MEDIUM',       color: 'var(--amber)',  glow: 'var(--amber-glow)' },
-  'low':          { label: 'LOW',          color: 'var(--blue)',   glow: 'var(--blue-glow)'  },
+  'in-stock':     { label: 'In Stock',     color: 'var(--green)' },
+  'healthy':      { label: 'Healthy',      color: 'var(--green)' },
+  'reorder-soon': { label: 'Reorder Soon', color: 'var(--amber)' },
+  'low-stock':    { label: 'Low Stock',    color: 'var(--amber)' },
+  'critical':     { label: 'Critical',     color: 'var(--red)' },
+  'out-of-stock': { label: 'Out of Stock', color: 'var(--red)' },
+  'pending':      { label: 'Pending',      color: 'var(--app-text-muted)' },
+  'shipped':      { label: 'Shipped',      color: 'var(--blue)' },
+  'delivered':    { label: 'Delivered',     color: 'var(--green)' },
+  'cancelled':    { label: 'Cancelled',    color: 'var(--red)' },
+  'high':         { label: 'HIGH',         color: 'var(--red)' },
+  'medium':       { label: 'MEDIUM',       color: 'var(--amber)' },
+  'low':          { label: 'LOW',          color: 'var(--blue)' },
 };
 
 const StatusPill = ({ status, label }) => {
-  const config = statusConfig[status] || statusConfig['pending'];
+  const key = String(status || 'pending').toLowerCase();
+  const config = statusConfig[key] || statusConfig['pending'];
   const displayLabel = label || config.label;
 
   return (
     <AnimatePresence mode="wait">
       <motion.span
-        key={status + displayLabel}
+        key={key + displayLabel}
+        role="status"
         className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[100px] whitespace-nowrap"
         style={{
           fontSize: '11px',
@@ -28,9 +33,8 @@ const StatusPill = ({ status, label }) => {
           letterSpacing: '0.6px',
           textTransform: 'uppercase',
           color: config.color,
-          background: config.glow,
-          border: `1px solid ${config.color}`,
-          borderColor: `color-mix(in srgb, ${config.color} 30%, transparent)`,
+          background: 'color-mix(in srgb, currentColor 10%, transparent)',
+          border: '1px solid color-mix(in srgb, currentColor 30%, transparent)',
         }}
         initial={{ opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}

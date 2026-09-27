@@ -14,9 +14,9 @@ const supplierSchema = new mongoose.Schema({
     email: {
         type: String,
         required: true,
-        unique: true,
         trim: true,
-        lowercase: true
+        lowercase: true,
+        match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Invalid email address']
     },
     phone: {
         type: String,
@@ -48,6 +48,9 @@ const supplierSchema = new mongoose.Schema({
         default: 'Legacy Workspace'
     }
 }, { timestamps: true });
+
+supplierSchema.index({ organization: 1, email: 1 }, { unique: true });
+supplierSchema.index({ organization: 1, createdAt: -1 });
 
 const Supplier = mongoose.model("Supplier", supplierSchema);
 

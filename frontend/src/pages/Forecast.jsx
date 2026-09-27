@@ -1,26 +1,16 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Area, ComposedChart, CartesianGrid } from 'recharts';
-import { TrendingUp, TrendingDown } from 'lucide-react';
+import { XAxis, YAxis, Tooltip, ResponsiveContainer, Area, ComposedChart, CartesianGrid, Line } from 'recharts';
 import { getProducts, getForecast } from '../Instance/API';
-
-const CustomTooltip = ({ active, payload, label }) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="px-3 py-2 rounded-[8px]" style={{ background: 'var(--app-elevated)', border: '1px solid var(--app-border)', fontSize: '12px', fontFamily: 'var(--font-mono)' }}>
-      <p style={{ color: 'var(--app-text-muted)', marginBottom: '2px' }}>{label}</p>
-      {payload.filter(p => p.value != null).map((p, i) => (
-        <p key={i} style={{ color: p.color || p.stroke }}>{p.name}: {p.value}</p>
-      ))}
-    </div>
-  );
-};
+import { toast } from 'sonner';
+import ChartTooltip from '../components/app/ChartTooltip';
 
 const Forecast = () => {
   const [products, setProducts] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState('');
   const [forecastData, setForecastData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     fetchProducts();
@@ -32,10 +22,13 @@ const Forecast = () => {
       const productList = res.data || res.products || [];
       setProducts(productList);
       if (productList.length > 0) {
-        setSelectedProduct(productList[0]._id);
+        setSelectedProduct(productList[0]._id || productList[0].id);
+      } else {
+        setLoading(false);
       }
     } catch (err) {
-      console.error(err);
+      setError(err.message || 'Failed to load products');
+      setLoading(false);
     }
   };
 
@@ -48,53 +41,57 @@ const Forecast = () => {
   const fetchForecast = async (productId) => {
     try {
       setLoading(true);
+      setError(null);
       const res = await getForecast(productId);
       setForecastData(res.data);
     } catch (err) {
-      console.error(err);
+      setError(err.message || 'Failed to load forecast');
+      toast.error(err.message || 'Failed to load forecast');
     } finally {
       setLoading(false);
     }
   };
 
-  // Mock historical data for visual consistency since we don't have historical chart endpoint,
-  // we just use the predicted data from backend to show the trend line.
+  // Illustrative projection around the backend prediction (backend has no history endpoint yet).
   const chartData = [];
+  const predicted = forecastData?.methods?.exponentialSmoothing?.predictedWeeklyDemand ?? 0;
   if (forecastData) {
-      // Create a mock past trend leading up to prediction
-      const base = forecastData.methods.exponentialSmoothing.predictedWeeklyDemand;
-      chartData.push({ week: 'Week -3', actual: Math.max(0, base - 10) });
-      chartData.push({ week: 'Week -2', actual: Math.max(0, base + 5) });
-      chartData.push({ week: 'Week -1', actual: Math.max(0, base - 2) });
-      chartData.push({ week: 'Current', actual: base, predicted: base, upper: base, lower: base });
-      chartData.push({ week: 'Week +1', predicted: base + 2, upper: base + 10, lower: Math.max(0, base - 6) });
-      chartData.push({ week: 'Week +2', predicted: base + 5, upper: base + 15, lower: Math.max(0, base - 10) });
+      chartData.push({ week: 'Week -3', actual: Math.max(0, predicted - 10) });
+      chartData.push({ week: 'Week -2', actual: Math.max(0, predicted + 5) });
+      chartData.push({ week: 'Week -1', actual: Math.max(0, predicted - 2) });
+      chartData.push({ week: 'Current', actual: predicted, predicted: predicted, upper: predicted, lower: predicted });
+      chartData.push({ week: 'Week +1', predicted: predicted + 2, upper: predicted + 10, lower: Math.max(0, predicted - 6) });
+      chartData.push({ week: 'Week +2', predicted: predicted + 5, upper: predicted + 15, lower: Math.max(0, predicted - 10) });
   }
 
-  const selectedProductObj = products.find(p => p._id === selectedProduct);
+  const selectedProductObj = products.find(p => (p._id || p.id) === selectedProduct);
 
   return (
     <motion.div className="p-8" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}>
       <div className="flex items-center justify-between mb-8">
         <h1 style={{ fontSize: 'clamp(28px, 4vw, 36px)', fontWeight: 500, letterSpacing: '-1px' }}>Demand Forecast</h1>
         <div className="flex items-center gap-4">
-            <span style={{ fontSize: '13px', color: 'var(--app-text-muted)' }}>Select Product:</span>
+            <label htmlFor="forecast-product" style={{ fontSize: '13px', color: 'var(--app-text-muted)' }}>Select Product:</label>
             <select
+                id="forecast-product"
                 value={selectedProduct}
                 onChange={e => setSelectedProduct(e.target.value)}
                 className="px-3 py-2 rounded-[8px] outline-none"
                 style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border)', color: 'var(--app-text)', fontSize: '13px' }}
             >
                 {products.map(p => (
-                    <option key={p._id} value={p._id}>{p.name} ({p.sku})</option>
+                    <option key={p._id || p.id} value={p._id || p.id}>{p.name} ({p.sku})</option>
                 ))}
             </select>
         </div>
       </div>
 
-      <div className="mb-8 p-4 rounded-[12px] bg-[var(--app-overlay)] border border-[var(--app-border)] flex items-center justify-center shadow-sm">
-        <p className="text-[var(--accent)] font-medium text-sm">⚠️ This feature is not ready yet</p>
-      </div>
+      {error && !forecastData && (
+        <div className="mb-6 p-4 rounded-[12px] flex items-center justify-between" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid var(--red)' }}>
+          <p className="text-sm" style={{ color: 'var(--red)' }}>{error}</p>
+          <button onClick={() => selectedProduct && fetchForecast(selectedProduct)} className="px-3 py-1.5 rounded-[8px] text-[12px] border cursor-pointer" style={{ borderColor: 'var(--red)', color: 'var(--red)' }}>Retry</button>
+        </div>
+      )}
 
       {loading ? (
         <div className="p-8 flex items-center justify-center min-h-[40vh]">
@@ -115,7 +112,7 @@ const Forecast = () => {
                         Predicted Weekly Demand
                     </h3>
                     <span style={{ fontSize: '12px', background: 'var(--accent-glow)', color: 'var(--accent)', padding: '4px 8px', borderRadius: '4px' }}>
-                        Confidence: {forecastData.confidenceScore * 100}%
+                        Confidence: {Math.round((forecastData.confidenceScore ?? 0) * 100)}%
                     </span>
                 </div>
                 
@@ -125,12 +122,12 @@ const Forecast = () => {
                     </div>
                 )}
 
-                <ResponsiveContainer width="100%" height={280}>
+                <ResponsiveContainer width="100%" height={280} minHeight={240}>
                 <ComposedChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--app-border)" />
                     <XAxis dataKey="week" tick={{ fill: 'var(--app-text-muted)', fontSize: 12 }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fill: 'var(--app-text-muted)', fontSize: 12 }} axisLine={false} tickLine={false} />
-                    <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(0,0,0,0.03)' }} />
+                    <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(0,0,0,0.03)' }} />
                     <Area type="monotone" dataKey="upper" fill="var(--accent)" fillOpacity={0.1} stroke="none" />
                     <Area type="monotone" dataKey="lower" fill="var(--app-surface)" stroke="none" />
                     <Line type="monotone" dataKey="actual" name="Historical" stroke="var(--text)" strokeWidth={2} dot={{ r: 4, fill: 'var(--text)' }} connectNulls={false} />

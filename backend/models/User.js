@@ -8,9 +8,9 @@ const userSchema = new mongoose.Schema({
     email: {
         type: String,
         required: true,
-        unique: true,
         trim: true,
-        lowercase: true
+        lowercase: true,
+        match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Invalid email address']
     },
     password: {
         type: String,
@@ -33,6 +33,9 @@ const userSchema = new mongoose.Schema({
         default: 'Legacy Workspace'
     }
 }, { timestamps: true });
+
+userSchema.index({ organization: 1, email: 1 }, { unique: true });
+userSchema.index({ organization: 1, role: 1 });
 
 const User = mongoose.model('User', userSchema);
 

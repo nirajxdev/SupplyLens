@@ -3,21 +3,42 @@ import bcrypt from "bcrypt";
 import User from "../models/User.js";
 import { OAuth2Client } from "google-auth-library";
 
-const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const getOAuthClient = () => {
+  const cid = process.env.GOOGLE_CLIENT_ID;
+  if (!cid) return null;
+  return new OAuth2Client(cid);
+};
+
+const isProd = process.env.NODE_ENV === "production";
+const cookieOpts = (maxAge) => ({
+  httpOnly: true,
+  secure: isProd, // false on localhost dev so cookie isn't dropped
+  sameSite: isProd ? "none" : "lax",
+  maxAge,
+  path: "/",
+});
 
 export const register = async (req, res) => {
-  const { name, email, password, role, organization } = req.body;
+  const { name, email, password, organization } = req.body;
+  // NOTE: `role` from client is intentionally ignored — everyone registers as staff.
+  // Admins promote via PUT /api/users/:id/role.
 
   if (!name || !email || !password) {
-    return res.status(400).json({ message: "Name, email and password are required" });
+    return res.status(400).json({ success: false, message: "Name, email and password are required" });
   }
 
-  const normalizedEmail = email.toLowerCase().trim();
+  const normalizedEmail = String(email).toLowerCase().trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+    return res.status(400).json({ success: false, message: "Invalid email address" });
+  }
+  if (String(password).length < 8) {
+    return res.status(400).json({ success: false, message: "Password must be at least 8 characters" });
+  }
 
   try {
     const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
-      return res.status(400).json({ message: "User already exists" });
+      return res.status(409).json({ success: false, message: "An account with this email already exists" });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -25,11 +46,11 @@ export const register = async (req, res) => {
     const defaultOrg = domain === 'gmail.com' ? 'Personal Workspace' : domain;
 
     const newUser = new User({
-      name,
+      name: String(name).trim(),
       email: normalizedEmail,
       password: hashedPassword,
-      role: role || 'staff',
-      organization: organization || defaultOrg
+      role: 'staff',
+      organization: (organization ? String(organization).trim() : defaultOrg) || defaultOrg
     });
 
     await newUser.save();
@@ -39,7 +60,10 @@ export const register = async (req, res) => {
       message: "User registered successfully, please log in",
     });
   } catch (error) {
-    res.status(500).json({ message: "Server error" });
+    if (error?.code === 11000) {
+      return res.status(409).json({ success: false, message: "An account with this email already exists" });
+    }
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
@@ -47,22 +71,25 @@ export const login = async (req, res) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
-    return res.status(400).json({ message: "Email and password are required" });
+    return res.status(400).json({ success: false, message: "Email and password are required" });
+  }
+  if (!process.env.JWT_SECRET) {
+    return res.status(500).json({ success: false, message: "Server misconfigured" });
   }
 
   try {
     const user = await User.findOne({ email: email.toLowerCase().trim() });
     if (!user) {
-      return res.status(400).json({ message: "Invalid credentials" });
+      return res.status(400).json({ success: false, message: "Invalid credentials" });
     }
 
     if (!user.password) {
-      return res.status(400).json({ message: "Please log in using Google." });
+      return res.status(400).json({ success: false, message: "Please log in using Google." });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(400).json({ message: "Invalid credentials" });
+      return res.status(400).json({ success: false, message: "Invalid credentials" });
     }
 
     const token = jwt.sign(
@@ -71,17 +98,12 @@ export const login = async (req, res) => {
       { expiresIn: "7d" },
     );
 
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: true, // Required for cross-domain cookies
-      sameSite: "none", // Required for cross-domain cookies
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    res.cookie("token", token, cookieOpts(7 * 24 * 60 * 60 * 1000));
 
     return res.status(200).json({
       success: true,
       message: "Login successful",
-      user: { id: user._id, name: user.name, email: user.email, role: user.role },
+      user: { id: user._id, name: user.name, email: user.email, role: user.role, organization: user.organization },
       token: token
     });
   } catch (error) {
@@ -96,13 +118,14 @@ export const logout = async (req, res) => {
   try {
     res.clearCookie("token", {
       httpOnly: true,
-      secure: true, // Required for cross-domain cookies
-      sameSite: "none", // Required for cross-domain cookies
+      secure: isProd,
+      sameSite: isProd ? "none" : "lax",
+      path: "/",
     });
 
     res.status(200).json({ success: true, message: "Logout successful" });
   } catch (error) {
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
@@ -115,6 +138,7 @@ export const getCurrentUser = async (req, res) => {
         name: req.user.name,
         email: req.user.email,
         role: req.user.role,
+        organization: req.user.organization,
       },
     });
   } catch (error) {
@@ -125,7 +149,11 @@ export const getCurrentUser = async (req, res) => {
 export const googleAuth = async (req, res) => {
   const { credential } = req.body;
   if (!credential) {
-    return res.status(400).json({ message: "No credential provided" });
+    return res.status(400).json({ success: false, message: "No credential provided" });
+  }
+  const client = getOAuthClient();
+  if (!client || !process.env.JWT_SECRET) {
+    return res.status(500).json({ success: false, message: "Server misconfigured" });
   }
 
   try {
@@ -135,6 +163,9 @@ export const googleAuth = async (req, res) => {
     });
     
     const payload = ticket.getPayload();
+    if (!payload?.email_verified) {
+      return res.status(401).json({ success: false, message: "Google email not verified" });
+    }
     const { email, name, sub: googleId } = payload;
     const normalizedEmail = email.toLowerCase().trim();
     const domain = normalizedEmail.split('@')[1];
@@ -153,6 +184,7 @@ export const googleAuth = async (req, res) => {
         name,
         email: normalizedEmail,
         googleId,
+        role: 'staff',
         organization: org
       });
       await user.save();
@@ -164,22 +196,17 @@ export const googleAuth = async (req, res) => {
       { expiresIn: "7d" }
     );
 
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: true, 
-      sameSite: "none", 
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    res.cookie("token", token, cookieOpts(7 * 24 * 60 * 60 * 1000));
 
     return res.status(200).json({
       success: true,
       message: "Google login successful",
-      user: { id: user._id, name: user.name, email: user.email, role: user.role },
+      user: { id: user._id, name: user.name, email: user.email, role: user.role, organization: user.organization },
       token: token
     });
 
   } catch (error) {
-    console.error("Google auth error:", error);
+    console.error("Google auth error:", error?.message || error);
     res.status(500).json({ success: false, message: "Google authentication failed" });
   }
 };

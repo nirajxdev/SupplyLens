@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { Search, Plus, Trash2 } from 'lucide-react';
@@ -36,21 +36,33 @@ const Inventory = () => {
   
   const [adjustType, setAdjustType] = useState('ADD');
   const [adjustReason, setAdjustReason] = useState('Physical Count Correction');
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   useEffect(() => {
     dispatch(fetchProducts());
   }, [dispatch]);
 
-  const filtered = (products || []).filter(p => {
-    const status = calculateStatus(p.currentStock || 0, p.minimumStockLevel || 5, p.safetyStock || 0);
-    const matchesSearch = p.name?.toLowerCase().includes(search.toLowerCase()) || p.sku?.toLowerCase().includes(search.toLowerCase());
+  const filtered = useMemo(() => (products || []).filter(p => {
+    const status = calculateStatus(p.currentStock ?? p.stockQuantity ?? 0, p.minimumStockLevel ?? p.lowStockThreshold ?? 5, p.safetyStock || 0);
+    const q = search.toLowerCase();
+    const matchesSearch = !q || p.name?.toLowerCase().includes(q) || p.sku?.toLowerCase().includes(q);
     const matchesFilter = filter === 'all' || status === filter;
     return matchesSearch && matchesFilter;
-  });
+  }), [products, search, filter]);
 
-  const handleDelete = (id) => {
-    if (window.confirm("Are you sure you want to delete this product? This will remove all associated stock history.")) {
-      dispatch(removeProduct(id));
+  const handleDelete = (product) => {
+    setDeleteTarget(product);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await dispatch(removeProduct(deleteTarget._id || deleteTarget.id)).unwrap();
+      toast.success('Product deleted');
+    } catch (err) {
+      toast.error(err?.message || 'Failed to delete product');
+    } finally {
+      setDeleteTarget(null);
     }
   };
 
@@ -193,10 +205,10 @@ const Inventory = () => {
                         <Link to="/dashboard/inventory/add" className="mt-4 inline-block text-[13px] font-medium" style={{ color: 'var(--accent)' }}>+ Add Product</Link>
                     </td>
                 </tr>
-              ) : filtered.map((p, i) => {
-                const stock = p.currentStock || 0;
-                const min = p.minimumStockLevel || 5;
-                const max = min * 2;
+              ) : filtered.map((p) => {
+                const stock = p.currentStock ?? p.stockQuantity ?? 0;
+                const min = p.minimumStockLevel ?? p.lowStockThreshold ?? 5;
+                const max = Math.max(min * 2, 1);
                 const ratio = Math.min(stock / max, 1);
                 const status = calculateStatus(stock, min, p.safetyStock);
                 return (
@@ -204,12 +216,12 @@ const Inventory = () => {
                     key={p._id || p.id}
                     className="group transition-colors duration-150"
                     style={{ borderBottom: '1px solid var(--app-border)' }}
-                    initial={{ opacity: 0, x: -16 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, height: 0, overflow: 'hidden' }}
-                    transition={{ duration: 0.3, delay: i * 0.03 }}
-                    onMouseEnter={e => { e.currentTarget.style.background = 'var(--app-overlay)'; e.currentTarget.style.borderLeft = '2px solid var(--accent)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderLeft = '2px solid transparent'; }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'var(--app-overlay)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
                   >
                     <td className="py-3 px-4">
                         <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--app-text)' }}>{p.name}</div>
@@ -220,12 +232,9 @@ const Inventory = () => {
                       <div className="flex items-center gap-3">
                         <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--app-text)', fontFamily: 'var(--font-mono)' }}>{stock}</span>
                         <div className="w-16 h-1 rounded-full overflow-hidden" style={{ background: 'var(--app-overlay)' }}>
-                          <motion.div
-                            className="h-full rounded-full"
-                            style={{ background: stockBarColor(ratio) }}
-                            initial={{ width: 0 }}
-                            animate={{ width: `${ratio * 100}%` }}
-                            transition={{ duration: 0.6, ease: 'easeOut', delay: i * 0.03 }}
+                          <div
+                            className="h-full rounded-full transition-all duration-300"
+                            style={{ background: stockBarColor(ratio), width: `${ratio * 100}%` }}
                           />
                         </div>
                       </div>
@@ -243,8 +252,9 @@ const Inventory = () => {
                             </button>
                             <RoleGuard allowedRoles={['admin']}>
                               <button
-                                  onClick={() => handleDelete(p._id || p.id)}
-                                  className="cursor-pointer bg-transparent border-0 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onClick={() => handleDelete(p)}
+                                  aria-label={`Delete ${p.name}`}
+                                  className="cursor-pointer bg-transparent border-0 p-1 transition-opacity md:opacity-0 md:group-hover:opacity-100"
                                   style={{ color: 'var(--red)' }}
                               >
                                   <Trash2 size={14} />
@@ -323,6 +333,22 @@ const Inventory = () => {
                           <button type="submit" className="px-4 py-2 rounded-[8px] text-[13px] font-medium cursor-pointer border-0" style={{ background: 'var(--accent)', color: '#000' }}>Confirm Adjust</button>
                       </div>
                   </form>
+              </div>
+          </div>
+      )}
+
+      {/* Delete confirmation — replaces blocking window.confirm */}
+      {deleteTarget && (
+          <div className="fixed inset-0 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-label="Delete product" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
+              <div className="rounded-[16px] p-6 w-full max-w-[400px]" style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border)' }}>
+                  <h2 className="text-[18px] font-medium mb-2">Delete product?</h2>
+                  <p className="text-[13px] mb-6" style={{ color: 'var(--app-text-muted)' }}>
+                    “{deleteTarget.name}” will be removed along with its stock history. This cannot be undone.
+                  </p>
+                  <div className="flex gap-3 justify-end">
+                      <button onClick={() => setDeleteTarget(null)} className="px-4 py-2 rounded-[8px] text-[13px] border cursor-pointer" style={{ borderColor: 'var(--app-border)', background: 'transparent', color: 'var(--app-text)' }}>Cancel</button>
+                      <button onClick={confirmDelete} className="px-4 py-2 rounded-[8px] text-[13px] font-medium cursor-pointer border-0" style={{ background: 'var(--red)', color: '#fff' }}>Delete</button>
+                  </div>
               </div>
           </div>
       )}

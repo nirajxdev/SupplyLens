@@ -38,6 +38,10 @@ const purchaseOrderSchema = new mongoose.Schema({
     expectedDeliveryDate: {
         type: Date
     },
+    deliveredAt: {
+        type: Date,
+        default: null
+    },
     user: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
@@ -49,6 +53,9 @@ const purchaseOrderSchema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
+purchaseOrderSchema.index({ organization: 1, status: 1 });
+purchaseOrderSchema.index({ organization: 1, supplier: 1, status: 1 });
+purchaseOrderSchema.index({ organization: 1, expectedDeliveryDate: 1, status: 1 });
 purchaseOrderSchema.index({ supplier: 1, status: 1 });
 purchaseOrderSchema.index({ expectedDeliveryDate: 1, status: 1 });
 

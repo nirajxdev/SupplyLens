@@ -12,24 +12,30 @@ export const createSupplier = async (req, res) => {
             return res.status(400).json({ success: false, message: "Please provide all required fields." });
         }
 
-        const supplierExists = await Supplier.findOne({ email, organization: req.user.organization });
+        const normalizedEmail = String(email).toLowerCase().trim();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+            return res.status(400).json({ success: false, message: "Invalid email address." });
+        }
+
+        const supplierExists = await Supplier.findOne({ email: normalizedEmail, organization: req.user.organization });
         if (supplierExists) {
-            return res.status(400).json({ success: false, message: "Supplier with this email already exists." });
+            return res.status(409).json({ success: false, message: "Supplier with this email already exists." });
         }
 
         const supplier = await Supplier.create({
-            name,
-            contactPerson,
-            email,
-            phone,
-            address,
+            name: String(name).trim(),
+            contactPerson: String(contactPerson).trim(),
+            email: normalizedEmail,
+            phone: String(phone).trim(),
+            address: String(address).trim(),
             user: req.user._id,
             organization: req.user.organization
         });
 
-        res.status(201).json({ success: true, supplier });
+        res.status(201).json({ success: true, data: supplier, supplier });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message || "Server Error" });
+        if (error?.code === 11000) return res.status(409).json({ success: false, message: "Supplier email already exists." });
+        res.status(500).json({ success: false, message: "Server Error" });
     }
 };
 
@@ -38,15 +44,16 @@ export const createSupplier = async (req, res) => {
 // @access  Private
 export const getSuppliers = async (req, res) => {
     try {
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 20;
+        const page = Math.max(parseInt(req.query.page) || 1, 1);
+        const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 100);
         const skip = (page - 1) * limit;
 
         const total = await Supplier.countDocuments({ organization: req.user.organization });
         const suppliers = await Supplier.find({ organization: req.user.organization })
             .sort({ createdAt: -1 })
             .skip(skip)
-            .limit(limit);
+            .limit(limit)
+            .lean();
             
         res.status(200).json({ 
             success: true, 
@@ -83,6 +90,7 @@ export const getSupplierById = async (req, res) => {
 // @desc    Update a supplier
 // @route   PUT /api/suppliers/:id
 // @access  Private/Admin
+const ALLOWED_SUPPLIER_FIELDS = new Set(['name', 'contactPerson', 'email', 'phone', 'address', 'averageDeliveryDays', 'reliabilityScore']);
 export const updateSupplier = async (req, res) => {
     try {
         let supplier = await Supplier.findOne({ _id: req.params.id, organization: req.user.organization });
@@ -91,15 +99,28 @@ export const updateSupplier = async (req, res) => {
             return res.status(404).json({ success: false, message: "Supplier not found" });
         }
 
+        const clean = {};
+        for (const k of Object.keys(req.body || {})) {
+            if (k.startsWith('$') || k.includes('.')) continue;
+            if (!ALLOWED_SUPPLIER_FIELDS.has(k)) continue;
+            clean[k] = req.body[k];
+        }
+        if (clean.email) {
+            clean.email = String(clean.email).toLowerCase().trim();
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean.email)) {
+                return res.status(400).json({ success: false, message: "Invalid email address." });
+            }
+        }
         supplier = await Supplier.findOneAndUpdate(
             { _id: req.params.id, organization: req.user.organization },
-            req.body,
+            { $set: clean },
             { new: true, runValidators: true }
         );
 
-        res.status(200).json({ success: true, supplier });
+        res.status(200).json({ success: true, data: supplier, supplier });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message || "Server Error" });
+        if (error?.code === 11000) return res.status(409).json({ success: false, message: "Supplier email already exists." });
+        res.status(500).json({ success: false, message: "Server Error" });
     }
 };
 
@@ -128,18 +149,20 @@ export const deleteSupplier = async (req, res) => {
 export const getSupplierScoreBreakdown = async (req, res) => {
     try {
         const supplierId = req.params.id;
-        const supplier = await Supplier.findOne({ _id: supplierId, organization: req.user.organization });
+        const supplier = await Supplier.findOne({ _id: supplierId, organization: req.user.organization }).lean();
         if (!supplier) return res.status(404).json({ success: false, message: "Supplier not found." });
 
-        const orders = await PurchaseOrder.find({ supplier: supplierId, status: "delivered", organization: req.user.organization });
-        const totalOrders = orders.length;
-        
-        let onTimeDeliveries = 0;
-        for (const order of orders) {
-            if (!order.expectedDeliveryDate || order.updatedAt <= order.expectedDeliveryDate) {
-                onTimeDeliveries++;
-            }
-        }
+        const totalOrders = await PurchaseOrder.countDocuments({ supplier: supplierId, status: "delivered", organization: req.user.organization });
+        const onTimeDeliveries = await PurchaseOrder.countDocuments({
+            supplier: supplierId,
+            status: "delivered",
+            organization: req.user.organization,
+            $or: [
+                { expectedDeliveryDate: null },
+                { expectedDeliveryDate: { $exists: false } },
+                { $expr: { $lte: [{ $ifNull: ["$deliveredAt", "$updatedAt"] }, "$expectedDeliveryDate"] } }
+            ]
+        });
         
         const lateDeliveries = totalOrders - onTimeDeliveries;
         const onTimeRate = totalOrders > 0 ? (onTimeDeliveries / totalOrders) * 100 : 100;

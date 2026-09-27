@@ -3,29 +3,37 @@ import StockMovement from "../models/StockMovement.js";
 import Supplier from "../models/Supplier.js";
 import PurchaseOrder from "../models/PurchaseOrder.js";
 
-export const calculateReorderPoint = async (productId) => {
+export const calculateReorderPoint = async (productId, { persist = true } = {}) => {
     const product = await Product.findById(productId).populate('supplier');
     if (!product || !product.supplier) return 0;
     
     const supplier = product.supplier;
     
-    // Calculate total SOLD quantity in last 30 days
+    // Count all outbound demand (SOLD + OUT), scoped to org, via aggregation
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     
-    const movements = await StockMovement.find({
-        productId: product._id,
-        type: "SOLD",
-        createdAt: { $gte: thirtyDaysAgo }
-    });
+    const agg = await StockMovement.aggregate([
+        {
+            $match: {
+                organization: product.organization,
+                type: { $in: ["SOLD", "OUT"] },
+                createdAt: { $gte: thirtyDaysAgo },
+                $or: [{ product: product._id }, { productId: product._id }]
+            }
+        },
+        { $group: { _id: null, totalSold: { $sum: "$quantity" } } }
+    ]);
     
-    const totalSold = movements.reduce((sum, mov) => sum + mov.quantity, 0);
+    const totalSold = agg[0]?.totalSold || 0;
     const averageDailyDemand = totalSold / 30;
     
-    const reorderPoint = Math.ceil((averageDailyDemand * supplier.averageDeliveryDays) + product.safetyStock);
+    const reorderPoint = Math.ceil((averageDailyDemand * (supplier.averageDeliveryDays || 0)) + (product.safetyStock || 0));
     
-    product.reorderPoint = reorderPoint;
-    await product.save();
+    if (persist) {
+        product.reorderPoint = reorderPoint;
+        await product.save();
+    }
     
     return reorderPoint;
 };
@@ -34,21 +42,29 @@ export const recalculateSupplierScore = async (supplierId) => {
     const supplier = await Supplier.findById(supplierId);
     if (!supplier) return 0;
     
-    const orders = await PurchaseOrder.find({ supplier: supplierId, status: "delivered" });
-    if (orders.length === 0) return 100; // default if no delivered orders
+    const deliveredCount = await PurchaseOrder.countDocuments({ supplier: supplierId, status: "delivered", organization: supplier.organization });
+    if (deliveredCount === 0) return 100; // default if no delivered orders
     
-    let onTimeCount = 0;
-    for (const order of orders) {
-        // Assume updated_at or delivery time compared to expectedDeliveryDate
-        // Wait, Order doesn't have deliveredDate. Let's use updatedAt as a proxy for delivery date,
-        // or just check if it was marked delivered before or on expectedDeliveryDate.
-        // If expectedDeliveryDate is null, we can't judge. Let's just assume on time if no expected date.
-        if (!order.expectedDeliveryDate || order.updatedAt <= order.expectedDeliveryDate) {
-            onTimeCount++;
-        }
-    }
+    // Use deliveredAt when available, fall back to updatedAt
+    const onTimeCount = await PurchaseOrder.countDocuments({
+        supplier: supplierId,
+        status: "delivered",
+        organization: supplier.organization,
+        $or: [
+            { expectedDeliveryDate: null },
+            { expectedDeliveryDate: { $exists: false } },
+            {
+                $expr: {
+                    $lte: [
+                        { $ifNull: ["$deliveredAt", "$updatedAt"] },
+                        "$expectedDeliveryDate"
+                    ]
+                }
+            }
+        ]
+    });
     
-    const onTimeRate = (onTimeCount / orders.length) * 100;
+    const onTimeRate = (onTimeCount / deliveredCount) * 100;
     supplier.reliabilityScore = Math.round(onTimeRate);
     await supplier.save();
     

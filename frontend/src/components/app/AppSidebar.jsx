@@ -28,17 +28,18 @@ const AppSidebar = () => {
   const [alertCount, setAlertCount] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
     const fetchAlertCount = async () => {
       try {
         const res = await getAlerts(false); // unread only
-        setAlertCount(res.data?.length || 0);
-      } catch (err) {
-        console.error("Failed to fetch alert count");
+        if (!cancelled) setAlertCount(res.data?.length || res.pagination?.total || 0);
+      } catch {
+        // silent — badge is best-effort
       }
     };
     if (user) fetchAlertCount();
-    const interval = setInterval(fetchAlertCount, 60000);
-    return () => clearInterval(interval);
+    // NOTE: polling lives in AppNavbar (single source). Sidebar fetches once to avoid double requests.
+    return () => { cancelled = true; };
   }, [user]);
 
   const handleLogout = async () => {
@@ -57,7 +58,7 @@ const AppSidebar = () => {
       style={{ width: 'var(--sidebar-width)', background: 'var(--app-surface)', borderRight: '1px solid var(--app-border)' }}
     >
       <div className="px-6 py-5">
-        <NavLink to="/" style={{ fontSize: '15px', fontWeight: 600, letterSpacing: '-0.4px', color: 'var(--app-text)' }}>
+        <NavLink to="/dashboard" style={{ fontSize: '15px', fontWeight: 600, letterSpacing: '-0.4px', color: 'var(--app-text)' }}>
           SupplyLens
         </NavLink>
       </div>
@@ -88,7 +89,7 @@ const AppSidebar = () => {
         <div className="flex items-center gap-3 mb-3">
           <div className="w-8 h-8 rounded-full flex items-center justify-center"
             style={{ background: 'var(--app-overlay)', fontSize: '13px', fontWeight: 500, color: 'var(--app-text)' }}>
-            {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+            {(user?.name?.charAt(0) || 'U').toUpperCase()}
           </div>
           <div className="min-w-0 flex-1">
             <p style={{ fontSize: '13px', fontWeight: 500, color: 'var(--app-text)' }} className="truncate leading-tight">{user?.name || 'User'}</p>

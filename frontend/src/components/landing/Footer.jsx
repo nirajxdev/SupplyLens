@@ -9,7 +9,7 @@ const Footer = () => (
             className="hover:text-[#111] transition-colors">{l}</a>
         ))}
       </div>
-      <span style={{ fontSize: '12px', color: '#bbb' }}>© 2025 SupplyLens</span>
+      <span style={{ fontSize: '12px', color: '#bbb' }}>© 2026 SupplyLens</span>
     </div>
   </footer>
 );

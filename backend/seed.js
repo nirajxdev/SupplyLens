@@ -201,10 +201,12 @@ const seedDatabase = async () => {
     });
 
     console.log('Demo data seeded successfully!');
-    process.exit(0);
   } catch (error) {
-    console.error('Error seeding data:', error);
-    process.exit(1);
+    console.error('Error seeding data:', error?.message || error);
+    process.exitCode = 1;
+  } finally {
+    await mongoose.disconnect();
+    process.exit(process.exitCode || 0);
   }
 };
 

@@ -81,10 +81,10 @@ const Hero = () => {
               style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', boxShadow: '0 2px 10px rgba(34,197,94,0.05)' }}
               variants={{ hidden: { opacity: 0, y: 15 }, visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 100, damping: 20 } } }}
             >
-              <span
+              {/* <span
                 className="w-2.5 h-2.5 rounded-full"
                 style={{ background: '#22c55e', animation: 'pulse-dot 2s ease-in-out infinite' }}
-              />
+              /> */}
               {/* <span style={{ fontSize: '14px', fontWeight: 500, color: '#166534' }}>Now in public beta</span> */}
             </motion.div>
 

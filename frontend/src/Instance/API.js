@@ -13,23 +13,37 @@ const parseResponseBody = async (response) => {
 
 const request = async (endpoint, options = {}) => {
     const token = localStorage.getItem('token');
-    const response = await fetch(`${API_URL}${endpoint}`, {
-        credentials: "include",
-        headers: {
-            "Content-Type": "application/json",
-            ...(token ? { "Authorization": `Bearer ${token}` } : {}),
-            ...(options.headers || {}),
-        },
-        ...options,
-    });
+    // Keep dual auth: Bearer (localStorage) + HttpOnly cookie (credentials:include)
+    const controller = new AbortController();
+    const timeoutMs = options.timeout ?? 15000;
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        const response = await fetch(`${API_URL}${endpoint}`, {
+            credentials: "include",
+            signal: controller.signal,
+            headers: {
+                "Content-Type": "application/json",
+                ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+                ...(options.headers || {}),
+            },
+            ...options,
+        });
 
-    const data = await parseResponseBody(response);
+        const data = await parseResponseBody(response);
 
-    if (!response.ok) {
-        throw new Error(data?.message || DEFAULT_ERROR_MESSAGE);
+        if (!response.ok) {
+            const err = new Error(data?.message || DEFAULT_ERROR_MESSAGE);
+            err.status = response.status;
+            throw err;
+        }
+
+        return data;
+    } catch (err) {
+        if (err?.name === 'AbortError') throw new Error('Request timed out, please retry');
+        throw err;
+    } finally {
+        clearTimeout(timeoutId);
     }
-
-    return data;
 };
 
 // --- Auth Endpoints ---

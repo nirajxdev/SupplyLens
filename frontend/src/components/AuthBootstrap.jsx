@@ -10,6 +10,14 @@ const AuthBootstrap = ({ children }) => {
     dispatch(checkAuth());
   }, [dispatch]);
 
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
+        <div className="w-6 h-6 border-2 border-transparent rounded-full animate-spin" style={{ borderTopColor: 'var(--accent)' }} />
+      </div>
+    );
+  }
+
   return children;
 };
 

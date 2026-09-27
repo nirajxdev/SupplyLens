@@ -24,10 +24,9 @@ export const protect = async (req, res, next) => {
             return res.status(401).json({ message: 'User not found' });
         }
 
-        // Auto-upgrade legacy 'user' or 'warehouse_staff' role to 'admin' or 'staff'
-        if (req.user.role === 'user') {
-            req.user.role = 'admin';
-        } else if (req.user.role === 'warehouse_staff') {
+        // Backward-compat: map legacy 'warehouse_staff' to 'staff' (DB should be migrated).
+        // NOTE: removed silent 'user' -> 'admin' upgrade (was privilege escalation).
+        if (req.user.role === 'warehouse_staff') {
             req.user.role = 'staff';
         }
 

@@ -19,19 +19,23 @@ const itemVariants = {
   show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
 };
 
-const ToggleSwitch = ({ enabled, onChange }) => (
-  <div 
+const ToggleSwitch = ({ enabled, onChange, label }) => (
+  <button
+    type="button"
+    role="switch"
+    aria-checked={enabled}
+    aria-label={label}
     onClick={() => onChange(!enabled)}
     className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-300 ${enabled ? 'bg-[var(--accent)]' : 'bg-gray-200 dark:bg-gray-700'}`}
     style={{ border: enabled ? 'none' : '1px solid var(--app-border)' }}
   >
-    <motion.div 
+    <motion.span
       layout
       transition={{ type: "spring", stiffness: 500, damping: 30 }}
-      className={`w-4 h-4 bg-white rounded-full shadow-md`}
+      className="w-4 h-4 bg-white rounded-full shadow-md block"
       style={{ marginLeft: enabled ? '20px' : '0px' }}
     />
-  </div>
+  </button>
 );
 
 const RoleBadge = ({ role }) => {
@@ -51,33 +55,42 @@ const RoleBadge = ({ role }) => {
 
 export const DashboardSettings = () => {
   const { user } = useSelector((state) => state.auth);
-  const [threshold, setThreshold] = useState(25);
+  const [threshold, setThreshold] = useState(() => Number(localStorage.getItem('sl_threshold') || 25));
   const [usersList, setUsersList] = useState([]);
   
-  const [notifications, setNotifications] = useState({
-    lowStock: true,
-    supplierDelay: true,
-    reorder: false,
-    weekly: false
+  const [notifications, setNotifications] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('sl_notifications')) || {
+        lowStock: true,
+        supplierDelay: true,
+        reorder: false,
+        weekly: false
+      };
+    } catch {
+      return { lowStock: true, supplierDelay: true, reorder: false, weekly: false };
+    }
   });
 
   const handleSave = (e) => { 
     e.preventDefault(); 
-    toast.success('Settings saved successfully', {
-      description: 'Your inventory parameters have been updated.'
+    localStorage.setItem('sl_threshold', String(threshold));
+    localStorage.setItem('sl_notifications', JSON.stringify(notifications));
+    toast.success('Settings saved locally', {
+      description: 'Thresholds and alert preferences are stored on this device.'
     }); 
+  };
+
+  const handleExport = () => {
+    toast.info('CSV export is not available yet — use Inventory → product list for now.');
   };
 
   const fetchAllUsers = async () => {
     try {
       const res = await getUsers();
-      if (Array.isArray(res)) {
-        setUsersList(res);
-      } else if (res && res.users) {
-        setUsersList(res.users);
-      }
+      const list = Array.isArray(res) ? res : (res?.data || res?.users || []);
+      setUsersList(list);
     } catch (err) {
-      console.error(err);
+      toast.error(err.message || 'Failed to load users');
     }
   };
 
@@ -161,10 +174,10 @@ export const DashboardSettings = () => {
             <div>
               <p className="text-xs font-semibold tracking-wider uppercase text-[var(--app-text-muted)] mb-1.5">API Key</p>
               <div className="flex gap-2">
-                <input type="password" value="sk-••••••••••••" readOnly className="flex-1 py-2.5 px-4 rounded-xl outline-none text-sm font-mono text-[var(--app-text-muted)] bg-[var(--app-elevated)] border border-[var(--app-border)] shadow-sm" />
+                <input type="password" value="API keys are not enabled in this build" readOnly className="flex-1 py-2.5 px-4 rounded-xl outline-none text-sm font-mono text-[var(--app-text-muted)] bg-[var(--app-elevated)] border border-[var(--app-border)] shadow-sm" />
               </div>
             </div>
-            <button className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all hover:bg-[var(--app-overlay)] text-[var(--app-text)] border border-[var(--app-border)] shadow-sm">
+            <button type="button" onClick={handleExport} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all hover:bg-[var(--app-overlay)] text-[var(--app-text)] border border-[var(--app-border)] shadow-sm">
               <Download size={16} /> Export All CSV
             </button>
           </motion.div>
@@ -219,19 +232,19 @@ export const DashboardSettings = () => {
               <div className="flex flex-col gap-4 mt-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-[var(--app-text)]">Low stock alerts</span>
-                  <ToggleSwitch enabled={notifications.lowStock} onChange={(v) => setNotifications(prev => ({...prev, lowStock: v}))} />
+                  <ToggleSwitch label="Low stock alerts" enabled={notifications.lowStock} onChange={(v) => setNotifications(prev => ({...prev, lowStock: v}))} />
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-[var(--app-text)]">Supplier delays</span>
-                  <ToggleSwitch enabled={notifications.supplierDelay} onChange={(v) => setNotifications(prev => ({...prev, supplierDelay: v}))} />
+                  <ToggleSwitch label="Supplier delays" enabled={notifications.supplierDelay} onChange={(v) => setNotifications(prev => ({...prev, supplierDelay: v}))} />
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-[var(--app-text)]">Reorder suggestions</span>
-                  <ToggleSwitch enabled={notifications.reorder} onChange={(v) => setNotifications(prev => ({...prev, reorder: v}))} />
+                  <ToggleSwitch label="Reorder suggestions" enabled={notifications.reorder} onChange={(v) => setNotifications(prev => ({...prev, reorder: v}))} />
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-[var(--app-text)]">Weekly digest</span>
-                  <ToggleSwitch enabled={notifications.weekly} onChange={(v) => setNotifications(prev => ({...prev, weekly: v}))} />
+                  <ToggleSwitch label="Weekly digest" enabled={notifications.weekly} onChange={(v) => setNotifications(prev => ({...prev, weekly: v}))} />
                 </div>
               </div>
             </motion.div>
@@ -274,7 +287,7 @@ export const DashboardSettings = () => {
                           <td className="py-4 px-5">
                             <div className="flex items-center gap-3">
                               <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 flex items-center justify-center text-xs font-bold text-gray-600 dark:text-gray-300 shadow-inner">
-                                {u.name.charAt(0).toUpperCase()}
+                                {(u.name?.charAt(0) || 'U').toUpperCase()}
                               </div>
                               <div className="flex flex-col">
                                 <span className="text-sm font-semibold text-[var(--app-text)]">{u.name} {u._id === user?._id && <span className="text-xs font-normal text-[var(--app-text-muted)] ml-1">(You)</span>}</span>

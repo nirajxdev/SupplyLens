@@ -5,6 +5,17 @@ export function useAnimatedCounter(end, { duration = 1.5, decimals = 0, prefix =
   const [inView, setInView] = useState(false);
   const [value, setValue] = useState(0);
 
+  // Coerce strings like "$1,234.00" / "98.2%" / "" to numbers. Falls back to 0.
+  const numericEnd = (() => {
+    if (typeof end === 'number' && Number.isFinite(end)) return end;
+    if (typeof end === 'string') {
+      const cleaned = end.replace(/[^0-9.\-]/g, '');
+      const parsed = parseFloat(cleaned);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+    return 0;
+  })();
+
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -34,7 +45,7 @@ export function useAnimatedCounter(end, { duration = 1.5, decimals = 0, prefix =
       const progress = Math.min(elapsed / (duration * 1000), 1);
       // easeOut
       const eased = 1 - Math.pow(1 - progress, 3);
-      const current = startVal + (end - startVal) * eased;
+      const current = startVal + (numericEnd - startVal) * eased;
       setValue(current);
 
       if (progress < 1) {
@@ -43,7 +54,7 @@ export function useAnimatedCounter(end, { duration = 1.5, decimals = 0, prefix =
     };
 
     requestAnimationFrame(animate);
-  }, [inView, end, duration]);
+  }, [inView, numericEnd, duration]);
 
   const displayValue = `${prefix}${decimals > 0 ? value.toFixed(decimals) : Math.round(value)}${suffix}`;
 

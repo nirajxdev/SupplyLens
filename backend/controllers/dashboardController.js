@@ -61,19 +61,19 @@ export const getDashboardStats = async (req, res) => {
         const suppliersWithDelays = overdueOrders.length;
 
         // Success Rate Calculation (ratio of delivered purchase orders to total non-cancelled POs)
-        const successRate = totalPos > 0 
-            ? `${((deliveredPos / totalPos) * 100).toFixed(1)}%` 
-            : "98.2%";
+        const successRateValue = totalPos > 0 
+            ? Number(((deliveredPos / totalPos) * 100).toFixed(1))
+            : 0;
 
-        // Format alerts matching the frontend's expected properties:
-        // { dot: 'red' | 'yellow', title: 'Critical Stock Depletion' | 'Low Stock warning', sub: '...', time: '...' }
+        // Format alerts: return structured data, let frontend format currency/dates
         const formattedAlerts = priorityAlerts.map(product => {
             const isCritical = product.stockQuantity === 0;
             return {
                 dot: isCritical ? "red" : "yellow",
                 title: isCritical ? "Critical Stock Depletion" : "Low Stock Alert",
                 sub: `${product.name} · SKU: ${product.sku} (Stock: ${product.stockQuantity}/${product.lowStockThreshold})`,
-                time: "JUST NOW"
+                productId: product._id,
+                createdAt: product.updatedAt
             };
         });
 
@@ -81,16 +81,18 @@ export const getDashboardStats = async (req, res) => {
             success: true,
             stats: {
                 totalProducts,
-                totalInventoryValue: `$${totalInventoryValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                totalInventoryValue,
+                totalInventoryValueFormatted: `$${totalInventoryValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
                 lowStockCount,
                 pendingReordersCount,
                 productsNeedingReorder,
                 suppliersWithDelays,
-                successRate
+                successRate: successRateValue,
+                successRateFormatted: `${successRateValue.toFixed(1)}%`
             },
             alerts: formattedAlerts
         });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message || "Server Error" });
+        res.status(500).json({ success: false, message: "Server Error" });
     }
 };

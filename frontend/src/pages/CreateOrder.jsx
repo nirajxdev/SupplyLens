@@ -51,14 +51,16 @@ const CreateOrder = () => {
     if (!expectedDeliveryDate) return toast.error("Please select an expected delivery date");
     if (items.length === 0) return toast.error("Please add at least one item");
     if (items.some(i => !i.product || i.quantity < 1 || i.unitPrice < 0)) return toast.error("Please complete all item fields correctly");
+    const seen = new Set(items.map(i => String(i.product)));
+    if (seen.size !== items.length) return toast.error("Duplicate product in order — merge quantities instead");
 
     setLoading(true);
     try {
+      // Server recomputes totalAmount — don't trust client total.
       await createOrder({
         supplier,
         expectedDeliveryDate,
-        items,
-        totalAmount
+        items: items.map(i => ({ product: i.product, quantity: Number(i.quantity), unitPrice: Number(i.unitPrice) })),
       });
       toast.success("Purchase order created successfully");
       navigate('/dashboard/orders');

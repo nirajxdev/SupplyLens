@@ -15,14 +15,22 @@ export const createPurchaseOrder = async (req, res) => {
         if (!supplier || !items || !items.length) {
             return res.status(400).json({ success: false, message: "Please provide supplier and at least one item." });
         }
+        if (items.length > 100) {
+            return res.status(400).json({ success: false, message: "Too many items (max 100)." });
+        }
 
-        const supplierExists = await Supplier.findOne({ _id: supplier, organization: req.user.organization });
+        const supplierExists = await Supplier.findOne({ _id: supplier, organization: req.user.organization }).lean();
         if (!supplierExists) {
             return res.status(404).json({ success: false, message: "Supplier not found." });
         }
 
-        // Validate items and calculate totalAmount
+        // Validate items and calculate totalAmount — single batched product fetch (no N+1)
+        const productIds = [...new Set(items.map(i => String(i.product)))];
+        const products = await Product.find({ _id: { $in: productIds }, organization: req.user.organization }).lean();
+        const productMap = new Map(products.map(p => [String(p._id), p]));
         let totalAmount = 0;
+        const cleanItems = [];
+        const seen = new Set();
         for (const item of items) {
             if (!item.product || item.quantity === undefined || item.unitPrice === undefined) {
                 return res.status(400).json({ success: false, message: "Each item must have a product ID, quantity, and unitPrice." });
@@ -30,27 +38,33 @@ export const createPurchaseOrder = async (req, res) => {
             const qty = Number(item.quantity);
             const price = Number(item.unitPrice);
             if (isNaN(qty) || qty <= 0 || isNaN(price) || price < 0) {
-                return res.status(400).json({ success: false, message: "Quantity must be a valid number greater than 0, and unit price must be a valid non-negative number." });
+                return res.status(400).json({ success: false, message: "Quantity must be > 0, unit price must be >= 0." });
             }
-            const product = await Product.findOne({ _id: item.product, organization: req.user.organization });
+            if (seen.has(String(item.product))) {
+                return res.status(400).json({ success: false, message: "Duplicate product in order items." });
+            }
+            seen.add(String(item.product));
+            const product = productMap.get(String(item.product));
             if (!product) {
                 return res.status(404).json({ success: false, message: `Product with ID ${item.product} not found.` });
             }
             totalAmount += qty * price;
+            cleanItems.push({ product: item.product, quantity: qty, unitPrice: price });
         }
 
         const purchaseOrder = await PurchaseOrder.create({
             supplier,
-            items,
-            totalAmount,
+            items: cleanItems,
+            totalAmount: Math.round(totalAmount * 100) / 100,
             expectedDeliveryDate,
             user: req.user._id,
             organization: req.user.organization
         });
 
-        res.status(201).json({ success: true, purchaseOrder });
+        res.status(201).json({ success: true, data: purchaseOrder, purchaseOrder });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message || "Server Error" });
+        if (error?.name === 'CastError') return res.status(400).json({ success: false, message: "Invalid id" });
+        res.status(500).json({ success: false, message: "Server Error" });
     }
 };
 
@@ -59,8 +73,8 @@ export const createPurchaseOrder = async (req, res) => {
 // @access  Private
 export const getPurchaseOrders = async (req, res) => {
     try {
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 20;
+        const page = Math.max(parseInt(req.query.page) || 1, 1);
+        const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 100);
         const skip = (page - 1) * limit;
 
         const total = await PurchaseOrder.countDocuments({ organization: req.user.organization });
@@ -70,7 +84,8 @@ export const getPurchaseOrders = async (req, res) => {
             .populate("user", "name email")
             .sort({ createdAt: -1 })
             .skip(skip)
-            .limit(limit);
+            .limit(limit)
+            .lean();
 
         res.status(200).json({ 
             success: true, 
@@ -83,7 +98,23 @@ export const getPurchaseOrders = async (req, res) => {
             }
         });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message || "Server Error" });
+        res.status(500).json({ success: false, message: "Server Error" });
+    }
+};
+
+// @desc Get single purchase order
+// @route GET /api/orders/:id
+export const getPurchaseOrderById = async (req, res) => {
+    try {
+        const po = await PurchaseOrder.findOne({ _id: req.params.id, organization: req.user.organization })
+            .populate("supplier", "name contactPerson email phone")
+            .populate("items.product", "name sku category price")
+            .lean();
+        if (!po) return res.status(404).json({ success: false, message: "Purchase order not found." });
+        res.status(200).json({ success: true, data: po });
+    } catch (error) {
+        if (error?.name === 'CastError') return res.status(400).json({ success: false, message: "Invalid order id" });
+        res.status(500).json({ success: false, message: "Server Error" });
     }
 };
 
@@ -115,19 +146,18 @@ export const updateOrderStatus = async (req, res) => {
 
         // Check if status is transitioning to delivered
         if (status === "delivered" && prevStatus !== "delivered") {
-            // Process and reconcile stock for all items
+            // Process and reconcile stock for all items — atomic $inc per product
             for (const item of purchaseOrder.items) {
-                const product = await Product.findOne({ _id: item.product, organization: req.user.organization });
+                const parsedQuantity = Number(item.quantity);
+                const product = await Product.findOneAndUpdate(
+                    { _id: item.product, organization: req.user.organization },
+                    { $inc: { currentStock: parsedQuantity, stockQuantity: parsedQuantity } },
+                    { new: true }
+                );
                 if (product) {
-                    const previousStock = product.currentStock;
-                    const parsedQuantity = Number(item.quantity);
-                    const newStock = previousStock + parsedQuantity;
+                    const newStock = product.currentStock;
+                    const previousStock = newStock - parsedQuantity;
                     
-                    // Update product stock
-                    product.currentStock = newStock;
-                    product.stockQuantity = newStock;
-                    await product.save();
-
                     // Create log movement
                     await StockMovement.create({
                         productId: product._id,
@@ -153,15 +183,16 @@ export const updateOrderStatus = async (req, res) => {
                 }
             }
             
-            // Recalculate supplier score
+            // Recalculate supplier score + stamp deliveredAt (used for on-time calc)
+            purchaseOrder.deliveredAt = new Date();
             await recalculateSupplierScore(purchaseOrder.supplier);
         }
 
         purchaseOrder.status = status;
         await purchaseOrder.save();
 
-        res.status(200).json({ success: true, purchaseOrder });
+        res.status(200).json({ success: true, data: purchaseOrder, purchaseOrder });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message || "Server Error" });
+        res.status(500).json({ success: false, message: "Server Error" });
     }
 };

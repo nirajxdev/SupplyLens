@@ -2,8 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import { useNavigate, useLocation, NavLink } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { Search, Bell, ChevronDown, LogOut, Settings, LayoutDashboard, Archive, Users, ShoppingCart, TrendingUp } from 'lucide-react';
-import { toast } from 'sonner';
+import { Bell, ChevronDown, LogOut, Settings, LayoutDashboard, Archive, Users, ShoppingCart, TrendingUp } from 'lucide-react';
 import { logoutUser } from '../../redux/slices/authSlice';
 import { getAlerts } from '../../Instance/API';
 
@@ -13,6 +12,7 @@ const pageTitles = {
   '/dashboard/inventory/add': 'Add Product',
   '/dashboard/suppliers': 'Suppliers',
   '/dashboard/orders': 'Orders',
+  '/dashboard/orders/create': 'Create Order',
   '/dashboard/forecast': 'Demand Forecast',
   '/dashboard/alerts': 'Alerts',
   '/dashboard/settings': 'Settings',
@@ -24,6 +24,7 @@ const mobileNavItems = [
   { icon: ShoppingCart, label: 'Orders', path: '/dashboard/orders', allowedRoles: ['admin', 'manager', 'staff'] },
   { icon: Users, label: 'Suppliers', path: '/dashboard/suppliers', allowedRoles: ['admin', 'manager'] },
   { icon: TrendingUp, label: 'Forecast', path: '/dashboard/forecast', allowedRoles: ['admin', 'manager'] },
+  { icon: Bell, label: 'Alerts', path: '/dashboard/alerts', allowedRoles: ['admin', 'manager', 'staff'] },
 ];
 
 const AppNavbar = () => {
@@ -43,18 +44,21 @@ const AppNavbar = () => {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     const fetchAlertCount = async () => {
       try {
         const res = await getAlerts(false); // unread only
-        setAlertCount(res.data?.length || 0);
-      } catch (err) {
-        console.error("Failed to fetch alert count");
+        if (!cancelled) setAlertCount(res.data?.length || res.pagination?.total || 0);
+      } catch {
+        // silent — badge is best-effort
       }
     };
     if (user) fetchAlertCount();
-    // Refresh alert count every minute
-    const interval = setInterval(fetchAlertCount, 60000);
-    return () => clearInterval(interval);
+    // Refresh alert count every minute (single poller — sidebar does not poll)
+    const interval = setInterval(() => { if (user) fetchAlertCount(); }, 60000);
+    const onFocus = () => { if (user) fetchAlertCount(); };
+    window.addEventListener('focus', onFocus);
+    return () => { cancelled = true; clearInterval(interval); window.removeEventListener('focus', onFocus); };
   }, [user]);
 
   const handleLogout = async () => {
@@ -71,6 +75,7 @@ const AppNavbar = () => {
 
         <div className="flex items-center gap-3">
           <button onClick={() => navigate('/dashboard/alerts')}
+            aria-label={alertCount > 0 ? `View alerts, ${alertCount} unread` : 'View alerts'}
             className="relative w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer bg-transparent transition-colors"
             style={{ border: '1px solid var(--app-border)', color: 'var(--app-text-muted)' }}>
             <Bell size={14} />
