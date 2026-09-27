@@ -77,7 +77,7 @@ Built on a hardened MERN stack with strict organization scoping, role-based acce
 | Manage suppliers & forecasts | ❌ | ✅ | ✅ |
 | Manage team roles / settings | ❌ | ❌ | ✅ |
 
-Everyone registers as `staff` — admins promote via **Settings → Team Management**.
+Pick a role at signup — `staff` or `manager` is granted directly. The first member of a brand-new workspace automatically becomes its `admin` (founder rule, so an org is never admin-less). Requesting `admin` in an existing workspace joins you as `staff` with a notice; admins promote via **Settings → Team Management**.
 
 ---
 
@@ -87,7 +87,7 @@ Base URL: `/api` (proxied to `http://localhost:5000` in dev). All routes require
 
 | Method & Path | Description |
 | :--- | :--- |
-| `POST /api/auth/register` | Register (always `staff`; public) |
+| `POST /api/auth/register` | Register with role request + founder-admin rule (public) |
 | `POST /api/auth/login` | Email + password login (public) |
 | `POST /api/auth/google` | Google OAuth login (public) |
 | `POST /api/auth/logout` | Clear auth cookie |

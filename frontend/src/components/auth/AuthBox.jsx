@@ -4,8 +4,8 @@ const AuthBox = ({ children, shake = false }) => {
       className="ent-card"
       style={{
         width: '100%',
-        maxWidth: 400,
-        padding: '24px',
+        maxWidth: 440,
+        padding: '22px',
         ...(shake ? { borderColor: 'var(--red)', animation: 'ent-shake 0.4s' } : {}),
       }}
     >

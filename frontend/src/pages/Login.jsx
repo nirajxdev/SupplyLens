@@ -56,12 +56,12 @@ const Login = () => {
   return (
     <AuthLayout title="Welcome back" subtitle="Log in to your SupplyLens workspace.">
       <AuthBox shake={shake}>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <FormInput label="Email" type="email" name="email" value={form.email} onChange={handleChange} placeholder="you@company.com" required />
           <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text)' }}>Password</label>
-              <button type="button" onClick={() => toast.info('Password reset is not enabled yet — contact your admin.')} style={{ fontSize: '13px', color: 'var(--text-tertiary)', cursor: 'pointer', background: 'transparent', border: 0 }} className="hover:opacity-70 transition-opacity">
+            <div className="flex items-center justify-between" style={{ marginBottom: 6 }}>
+              <label htmlFor="password" style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>Password</label>
+              <button type="button" onClick={() => toast.info('Password reset is not enabled yet — contact your admin.')} style={{ fontSize: '12.5px', color: 'var(--text-tertiary)', cursor: 'pointer', background: 'transparent', border: 0 }} className="hover:opacity-70 transition-opacity">
                 Forgot?
               </button>
             </div>
@@ -70,9 +70,9 @@ const Login = () => {
           <SubmitButton loading={loading} success={success}>Log in</SubmitButton>
         </form>
 
-        <div className="flex items-center my-6">
+        <div style={{ display: 'flex', alignItems: 'center', margin: '16px 0 12px' }}>
           <div className="flex-1 border-t" style={{ borderColor: 'var(--border)' }}></div>
-          <span className="px-3" style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>or continue with</span>
+          <span className="px-3" style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>or continue with</span>
           <div className="flex-1 border-t" style={{ borderColor: 'var(--border)' }}></div>
         </div>
 
@@ -84,9 +84,9 @@ const Login = () => {
           />
         </div>
 
-        <p className="text-center mt-6" style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
+        <p className="text-center" style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: 14 }}>
           Don't have an account?{' '}
-          <Link to="/signup" style={{ color: 'var(--accent)', fontWeight: 500 }} className="hover:opacity-80 transition-opacity">
+          <Link to="/signup" style={{ color: 'var(--accent)', fontWeight: 600 }} className="hover:opacity-80 transition-opacity">
             Sign up
           </Link>
         </p>

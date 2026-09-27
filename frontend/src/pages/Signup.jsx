@@ -10,15 +10,42 @@ import AuthBox from '../components/auth/AuthBox';
 import FormInput from '../components/auth/FormInput';
 import PasswordStrength from '../components/auth/PasswordStrength';
 import SubmitButton from '../components/auth/SubmitButton';
-import { ShieldCheck } from 'lucide-react';
+import { ShieldCheck, Info } from 'lucide-react';
+
+const ROLES = [
+  {
+    id: 'staff',
+    label: 'Staff',
+    badge: 'Day-to-day work',
+    desc: 'Update stock, record sales, view orders and alerts.',
+  },
+  {
+    id: 'manager',
+    label: 'Manager',
+    badge: 'Approvals & vendors',
+    desc: 'Create orders, manage suppliers, adjust stock, view forecasts.',
+  },
+  {
+    id: 'admin',
+    label: 'Admin',
+    badge: 'Full control',
+    desc: 'Everything, plus team roles and workspace settings.',
+  },
+];
+
+const ROLE_HINTS = {
+  staff: 'Safe default — managers and admins can raise your access anytime.',
+  manager: 'Joins with approval powers. Admins can adjust this later.',
+  admin: 'Heads up: you become Admin only if this is a brand-new workspace (its first member). Joining an existing one? You’ll start as Staff until an admin approves.',
+};
 
 const Signup = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { loading, error } = useSelector((state) => state.auth);
   const [shake, setShake] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [form, setForm] = useState({ name: '', businessName: '', email: '', password: '' });
+  const [success, setSuccess] = useState(null); // { role } on success
+  const [form, setForm] = useState({ name: '', businessName: '', email: '', password: '', role: 'staff' });
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -28,11 +55,13 @@ const Signup = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await dispatch(registerUser({ ...form, organization: form.businessName })).unwrap();
-      setSuccess(true);
-      toast.success('Account created! Please log in.');
+      const data = await dispatch(registerUser({ ...form, organization: form.businessName })).unwrap();
+      const assignedRole = data?.user?.role || 'staff';
+      setSuccess({ role: assignedRole });
+      toast.success(`Account created as ${assignedRole}! Please log in.`);
+      if (data?.notice) toast.info(data.notice, { duration: 6000 });
       confetti({ particleCount: 60, spread: 55, origin: { y: 0.6 }, colors: ['#1d4ed8', '#3b82f6', '#93c5fd'] });
-      setTimeout(() => navigate('/login', { replace: true }), 1800);
+      setTimeout(() => navigate('/login', { replace: true }), 2200);
     } catch (err) {
       setShake(true);
       setTimeout(() => setShake(false), 600);
@@ -43,7 +72,7 @@ const Signup = () => {
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
       await dispatch(googleLoginUser(credentialResponse.credential)).unwrap();
-      setSuccess(true);
+      setSuccess({ role: 'member' });
       toast.success('Google login successful!');
       setTimeout(() => navigate('/dashboard', { replace: true }), 800);
     } catch (err) {
@@ -66,7 +95,7 @@ const Signup = () => {
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
               <ShieldCheck size={20} />
             </span>
-            <h2 style={{ fontSize: 16, fontWeight: 700 }}>Account created</h2>
+            <h2 style={{ fontSize: 16, fontWeight: 700 }}>Account created{success.role !== 'member' && ` as ${success.role}`}</h2>
             <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>Redirecting to login…</p>
           </div>
         </AuthBox>
@@ -87,13 +116,60 @@ const Signup = () => {
               <PasswordStrength password={form.password} />
             </div>
           </div>
+
+          <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
+            <legend style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', padding: 0, marginBottom: 6 }}>
+              Choose your role
+            </legend>
+            <div role="radiogroup" aria-label="Account role" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {ROLES.map((r) => {
+                const selected = form.role === r.id;
+                return (
+                  <label
+                    key={r.id}
+                    style={{
+                      display: 'flex', gap: 10, alignItems: 'flex-start',
+                      padding: '9px 12px', borderRadius: 8, cursor: 'pointer',
+                      border: selected ? '1.5px solid var(--accent)' : '1px solid var(--border)',
+                      background: selected ? 'var(--accent-light)' : 'var(--bg)',
+                      paddingTop: selected ? 8.5 : 9, paddingBottom: selected ? 8.5 : 9,
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="role"
+                      value={r.id}
+                      checked={selected}
+                      onChange={() => setForm({ ...form, role: r.id })}
+                      style={{ marginTop: 2, accentColor: 'var(--accent)' }}
+                    />
+                    <span style={{ minWidth: 0 }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <strong style={{ fontSize: 13.5 }}>{r.label}</strong>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent-text)',
+                          background: 'var(--bg)', border: '1px solid var(--border)',
+                          borderRadius: 999, padding: '1px 8px' }}>
+                          {r.badge}
+                        </span>
+                      </span>
+                      <span style={{ display: 'block', fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.5 }}>
+                        {r.desc}
+                      </span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          </fieldset>
+
           <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', background: 'var(--bg-secondary)',
-            border: '1px solid var(--border)', borderRadius: 6, padding: '8px 10px' }}>
-            <ShieldCheck size={14} style={{ color: 'var(--accent)', flexShrink: 0, marginTop: 1 }} />
+            border: '1px solid var(--border)', borderRadius: 6, padding: '8px 10px' }} role="note">
+            <Info size={14} style={{ color: 'var(--accent)', flexShrink: 0, marginTop: 1 }} />
             <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-              New accounts start as <strong>Staff</strong>. An admin can grant Manager or Admin access later.
+              {ROLE_HINTS[form.role]}
             </p>
           </div>
+
           <SubmitButton loading={loading}>Create account</SubmitButton>
         </form>
 

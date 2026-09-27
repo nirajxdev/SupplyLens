@@ -45,9 +45,10 @@ const AuthLayout = ({ children, title, subtitle }) => {
       </aside>
 
       {/* Form column */}
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 20px', overflowY: 'auto' }}>
-        <div style={{ width: '100%', maxWidth: 400 }}>
-          <div className="lg:hidden" style={{ marginBottom: 20 }}>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        minHeight: '100vh', padding: '32px 20px', overflowY: 'auto' }}>
+        <div style={{ width: '100%', maxWidth: 440, margin: 'auto 0' }}>
+          <div className="lg:hidden" style={{ marginBottom: 16 }}>
             <Link to="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: 'var(--text)' }}>
               <span style={{ width: 26, height: 26, borderRadius: 6, background: 'var(--accent)', color: '#fff',
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800 }}>S</span>
@@ -55,12 +56,15 @@ const AuthLayout = ({ children, title, subtitle }) => {
             </Link>
           </div>
           {(title || subtitle) && (
-            <div style={{ marginBottom: 16 }}>
+            <div style={{ marginBottom: 14 }}>
               {title && <h1 style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.3px' }}>{title}</h1>}
               {subtitle && <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>{subtitle}</p>}
             </div>
           )}
           {children}
+          <p style={{ fontSize: 11.5, color: 'var(--text-tertiary)', textAlign: 'center', marginTop: 20 }}>
+            Protected by role-based access · Your workspace data stays isolated
+          </p>
         </div>
       </main>
     </div>

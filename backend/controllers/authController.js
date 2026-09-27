@@ -19,9 +19,11 @@ const cookieOpts = (maxAge) => ({
 });
 
 export const register = async (req, res) => {
-  const { name, email, password, organization } = req.body;
-  // NOTE: `role` from client is intentionally ignored — everyone registers as staff.
-  // Admins promote via PUT /api/users/:id/role.
+  const { name, email, password, organization, role } = req.body;
+  // Role policy (also mirrored in the signup UI copy):
+  // - Brand-new workspace (no members yet) → first registrant becomes its Admin (founder).
+  // - Existing workspace → staff/manager honored, admin is never self-granted
+  //   (downgraded to staff with an explanatory `notice`).
 
   if (!name || !email || !password) {
     return res.status(400).json({ success: false, message: "Name, email and password are required" });
@@ -44,13 +46,32 @@ export const register = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const domain = normalizedEmail.split('@')[1];
     const defaultOrg = domain === 'gmail.com' ? 'Personal Workspace' : domain;
+    const finalOrg = (organization ? String(organization).trim() : defaultOrg) || defaultOrg;
+
+    const requestedRole = ['staff', 'manager', 'admin'].includes(role) ? role : 'staff';
+    const membersInOrg = await User.countDocuments({ organization: finalOrg });
+
+    let finalRole = 'staff';
+    let notice = null;
+    if (membersInOrg === 0) {
+      // Founder: nobody can promote you if the workspace is brand new.
+      finalRole = 'admin';
+      notice = requestedRole === 'admin'
+        ? `Workspace "${finalOrg}" created — you're its Admin.`
+        : `No workspace named "${finalOrg}" existed, so one was created and you're its Admin.`;
+    } else if (requestedRole === 'admin') {
+      finalRole = 'staff';
+      notice = 'Admin access needs approval from a workspace admin — you joined as Staff.';
+    } else {
+      finalRole = requestedRole;
+    }
 
     const newUser = new User({
       name: String(name).trim(),
       email: normalizedEmail,
       password: hashedPassword,
-      role: 'staff',
-      organization: (organization ? String(organization).trim() : defaultOrg) || defaultOrg
+      role: finalRole,
+      organization: finalOrg
     });
 
     await newUser.save();
@@ -58,6 +79,8 @@ export const register = async (req, res) => {
     res.status(201).json({
       success: true,
       message: "User registered successfully, please log in",
+      user: { id: newUser._id, name: newUser.name, email: newUser.email, role: newUser.role, organization: newUser.organization },
+      notice,
     });
   } catch (error) {
     if (error?.code === 11000) {
@@ -180,11 +203,14 @@ export const googleAuth = async (req, res) => {
         await user.save();
       }
     } else {
+      // Founder rule (same as email register): first member of a new
+      // workspace becomes its Admin so the org is never admin-less.
+      const membersInOrg = await User.countDocuments({ organization: org });
       user = new User({
         name,
         email: normalizedEmail,
         googleId,
-        role: 'staff',
+        role: membersInOrg === 0 ? 'admin' : 'staff',
         organization: org
       });
       await user.save();
